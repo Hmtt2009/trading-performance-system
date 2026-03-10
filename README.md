@@ -1,88 +1,36 @@
-# [Product Name TBD]
-## AI-Powered Trading Performance System
-
-> Upload your trades. See what you're really doing.
-
-An AI-powered system that analyzes U.S. stock trade data and automatically discovers behavioral patterns costing traders money — from nothing but a CSV file upload.
-
----
-
-## Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [BRD.md](docs/BRD.md) | Business Requirements Document — the product bible |
-| [PHASE_PLAN.md](docs/PHASE_PLAN.md) | MVP → Phase 2 → Phase 3 scope |
-| [TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) | Architecture, stack, data models, APIs |
-| [PATTERNS_SPEC.md](docs/PATTERNS_SPEC.md) | Behavioral pattern detection algorithms |
-| [DECISIONS_LOG.md](docs/DECISIONS_LOG.md) | All decisions tracked across development |
-| [PROJECT_INSTRUCTIONS.md](docs/PROJECT_INSTRUCTIONS.md) | Claude Project system prompt |
-
-## Current Phase: MVP
-
-**Focus:** IBKR stock traders. Upload CSV → detect 4 behavioral patterns → AI coaching debrief.
-
-See [PHASE_PLAN.md](docs/PHASE_PLAN.md) for full scope.
-
-## Tech Stack
-
-- **Frontend:** Next.js 14+ / TypeScript / Tailwind / shadcn/ui
-- **Backend:** Next.js API Routes
-- **Database:** Supabase (PostgreSQL)
-- **AI:** Claude API (Anthropic)
-- **Payments:** Stripe
-- **Hosting:** Vercel
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
+First, run the development server:
+
 ```bash
-# Clone
-git clone [repo-url]
-cd [repo-name]
-
-# Install
-npm install
-
-# Environment
-cp .env.example .env.local
-# Fill in Supabase, Anthropic, Stripe keys
-
-# Run
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Project Structure
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```
-├── docs/                    # Product & technical documentation
-│   ├── BRD.md
-│   ├── PHASE_PLAN.md
-│   ├── TECHNICAL_SPEC.md
-│   ├── PATTERNS_SPEC.md
-│   ├── DECISIONS_LOG.md
-│   └── PROJECT_INSTRUCTIONS.md
-├── src/
-│   ├── app/                 # Next.js app router pages
-│   ├── components/          # React components
-│   ├── lib/                 # Shared utilities
-│   │   ├── parser/          # CSV parsing logic
-│   │   ├── analysis/        # Analysis engine
-│   │   │   ├── baseline.ts  # Trader baseline computation
-│   │   │   ├── patterns/    # Pattern detection modules
-│   │   │   ├── pnl.ts       # P&L calculations
-│   │   │   └── scorecard.ts # Edge scorecard
-│   │   ├── ai/              # AI layer (Claude API)
-│   │   └── db/              # Database queries
-│   ├── types/               # TypeScript type definitions
-│   └── styles/              # Global styles
-├── supabase/
-│   └── migrations/          # Database migrations
-└── tests/
-    ├── parser/              # Parser tests
-    ├── patterns/            # Pattern detection tests
-    └── fixtures/            # Test CSV files
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## License
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-Proprietary. All rights reserved.
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
