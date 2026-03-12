@@ -269,7 +269,11 @@ function detectPrematureExit(
     // they typically capture at their average hold time.
     const holdRatio = trade.holdTimeMinutes / baseline.avgWinningHoldTimeMinutes;
     const estimatedFullProfit = trade.netPnl / holdRatio;
-    const leftOnTable = Math.max(0, estimatedFullProfit - trade.netPnl);
+    // Cap leftOnTable at 3x the captured profit to avoid absurd extrapolations
+    const leftOnTable = Math.min(
+      Math.max(0, estimatedFullProfit - trade.netPnl),
+      trade.netPnl * 3
+    );
 
     // Only flag if left significant profit on the table (>50% of captured profit)
     if (leftOnTable < trade.netPnl * 0.5) continue;
@@ -277,7 +281,7 @@ function detectPrematureExit(
     patterns.push({
       patternType: 'premature_exit',
       confidence: 'medium',
-      severity: leftOnTable > trade.netPnl * 2 ? 'severe' : 'moderate',
+      severity: leftOnTable >= trade.netPnl * 2 ? 'severe' : 'moderate',
       triggerTradeIndex: i,
       involvedTradeIndices: [i],
       dollarImpact: Math.round(leftOnTable * 100) / 100,

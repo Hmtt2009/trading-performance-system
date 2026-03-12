@@ -1,73 +1,132 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #1a1a1a;
-  --card-hover: #222222;
-  --border: #2a2a2a;
-  --border-light: #333333;
-  --muted: #888888;
-  --profit: #22c55e;
-  --profit-bg: rgba(34, 197, 94, 0.1);
-  --loss: #ef4444;
-  --loss-bg: rgba(239, 68, 68, 0.1);
-  --warn: #f59e0b;
-  --warn-bg: rgba(245, 158, 11, 0.1);
-  --accent: #3b82f6;
-  --accent-bg: rgba(59, 130, 246, 0.1);
+  /* Core palette */
+  --bg: #070709;
+  --surface: #0c0c0f;
+  --panel: #101014;
+  --panel-hover: #16161c;
+  --border: #1c1c22;
+  --border-light: #28282f;
+  --foreground: #e0e0e8;
+  --muted: #6b6b78;
+
+  /* Signal colors */
+  --green: #00e87a;
+  --red: #ff4560;
+  --amber: #f5a623;
+  --blue: #3d7fff;
+
+  /* Backgrounds */
+  --green-bg: rgba(0, 232, 122, 0.08);
+  --red-bg: rgba(255, 69, 96, 0.08);
+  --amber-bg: rgba(245, 166, 35, 0.08);
+  --blue-bg: rgba(61, 127, 255, 0.08);
+
+  /* Legacy aliases so every existing utility class maps correctly */
+  --background: var(--bg);
+  --card: var(--panel);
+  --card-hover: var(--panel-hover);
+  --profit: var(--green);
+  --loss: var(--red);
+  --warn: var(--amber);
+  --accent: var(--blue);
+  --profit-bg: var(--green-bg);
+  --loss-bg: var(--red-bg);
+  --warn-bg: var(--amber-bg);
+  --accent-bg: var(--blue-bg);
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-hover: var(--card-hover);
+  --color-card: var(--panel);
+  --color-card-hover: var(--panel-hover);
   --color-border: var(--border);
   --color-border-light: var(--border-light);
   --color-muted: var(--muted);
-  --color-profit: var(--profit);
-  --color-profit-bg: var(--profit-bg);
-  --color-loss: var(--loss);
-  --color-loss-bg: var(--loss-bg);
-  --color-warn: var(--warn);
-  --color-warn-bg: var(--warn-bg);
-  --color-accent: var(--accent);
-  --color-accent-bg: var(--accent-bg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-green: var(--green);
+  --color-profit: var(--green);
+  --color-profit-bg: var(--green-bg);
+  --color-red: var(--red);
+  --color-loss: var(--red);
+  --color-loss-bg: var(--red-bg);
+  --color-amber: var(--amber);
+  --color-warn: var(--amber);
+  --color-warn-bg: var(--amber-bg);
+  --color-blue: var(--blue);
+  --color-accent: var(--blue);
+  --color-accent-bg: var(--blue-bg);
+  --font-sans: var(--font-syne, system-ui, sans-serif);
+  --font-mono: var(--font-space-mono, "Courier New", monospace);
+  --font-display: var(--font-bebas-neue, Impact, sans-serif);
 }
 
+/* ── Body ── */
 body {
-  background: var(--background);
+  background: var(--bg);
+  background-image: radial-gradient(
+    rgba(0, 232, 122, 0.07) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
   color: var(--foreground);
-  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+  font-family: var(--font-sans);
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Panel header stripe pattern ── */
+.panel-header {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+}
+.panel-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -55deg,
+    transparent,
+    transparent 5px,
+    rgba(255,255,255,0.012) 5px,
+    rgba(255,255,255,0.012) 10px
+  );
+  pointer-events: none;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--background);
+/* ── Ticker tape ── */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-scroll {
+  animation: ticker 40s linear infinite;
+}
+.ticker-scroll:hover {
+  animation-play-state: paused;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border-light);
-  border-radius: 3px;
-}
+/* ── Glow utilities ── */
+.glow-green { box-shadow: 0 0 12px rgba(0, 232, 122, 0.15), inset 0 1px 0 rgba(0, 232, 122, 0.05); }
+.glow-red   { box-shadow: 0 0 12px rgba(255, 69, 96, 0.15); }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+/* ── Pulse ring on live dot ── */
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
-
-/* Custom utility classes */
-.pnl-positive {
-  color: var(--profit);
-}
-
-.pnl-negative {
-  color: var(--loss);
+.pulse-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--green);
+  animation: pulse-ring 2s ease-out infinite;
 }

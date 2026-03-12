@@ -1,64 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { computeScorecard } from '@/lib/analysis/scorecard';
-import type { ParsedTrade } from '@/types';
+import { getAuthUser } from '@/lib/auth/getAuthUser';
+
+interface RawSegment {
+  trades: number;
+  wins: number;
+  totalPnl: number;
+  winPnl: number;
+  lossPnl: number;
+}
+
+function emptySegment(): RawSegment {
+  return { trades: 0, wins: 0, totalPnl: 0, winPnl: 0, lossPnl: 0 };
+}
+
+function addTrade(seg: RawSegment, pnl: number, isWin: boolean) {
+  seg.trades++;
+  if (isWin) { seg.wins++; seg.winPnl += pnl; }
+  else { seg.lossPnl += pnl; }
+  seg.totalPnl += pnl;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    const user = await getAuthUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = await (await import('@/lib/supabase/server')).createClient();
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30d';
-
+    const period = searchParams.get('period') || '90d';
     const now = new Date();
     let dateFrom: Date;
     switch (period) {
       case '7d': dateFrom = new Date(now.getTime() - 7 * 86400000); break;
       case '30d': dateFrom = new Date(now.getTime() - 30 * 86400000); break;
-      case '90d': dateFrom = new Date(now.getTime() - 90 * 86400000); break;
       case 'all': dateFrom = new Date('2000-01-01'); break;
-      default: dateFrom = new Date(now.getTime() - 30 * 86400000);
+      default: dateFrom = new Date(now.getTime() - 90 * 86400000);
+    }
+    const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).eq('is_open', false).gte('entry_time', dateFrom.toISOString()).order('entry_time', { ascending: true });
+    const allTrades = trades || [];
+
+    const byHour: Record<number, RawSegment> = {};
+    const byDow: Record<number, RawSegment> = {};
+    const byHoldTime: Record<string, RawSegment> = {
+      '0-5min': emptySegment(), '5-15min': emptySegment(),
+      '15-60min': emptySegment(), '1-4hr': emptySegment(), '4hr+': emptySegment(),
+    };
+    const bySymbol: Record<string, RawSegment> = {};
+    const byPriceTier: Record<string, RawSegment> = {
+      'Penny': emptySegment(), 'Small': emptySegment(),
+      'Mid': emptySegment(), 'Large': emptySegment(),
+    };
+    const byTimeOfDay: Record<string, RawSegment> = {
+      'Pre-Market': emptySegment(), 'Open (9:30-10:00)': emptySegment(),
+      'Morning (10:00-12:00)': emptySegment(), 'Afternoon (12:00+)': emptySegment(),
+    };
+
+    const etFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false,
+    });
+
+    for (const t of allTrades) {
+      const pnl = Number(t.net_pnl || 0);
+      const isWin = pnl > 0;
+      const entryDate = new Date(t.entry_time);
+
+      // Eastern time hour/minute
+      const parts = etFormatter.formatToParts(entryDate);
+      const etHour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+      const etMinute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+      const etTotalMinutes = etHour * 60 + etMinute;
+
+      // By Hour (Eastern time)
+      if (!byHour[etHour]) byHour[etHour] = emptySegment();
+      addTrade(byHour[etHour], pnl, isWin);
+
+      // By Day of Week
+      const d = entryDate.getUTCDay();
+      if (!byDow[d]) byDow[d] = emptySegment();
+      addTrade(byDow[d], pnl, isWin);
+
+      // By Hold Time
+      const hold = t.hold_time_minutes || 0;
+      const bk = hold <= 5 ? '0-5min' : hold <= 15 ? '5-15min' : hold <= 60 ? '15-60min' : hold <= 240 ? '1-4hr' : '4hr+';
+      addTrade(byHoldTime[bk], pnl, isWin);
+
+      // By Symbol
+      if (!bySymbol[t.symbol]) bySymbol[t.symbol] = emptySegment();
+      addTrade(bySymbol[t.symbol], pnl, isWin);
+
+      // By Price Tier
+      const price = Number(t.entry_price);
+      const tier = price < 5 ? 'Penny' : price < 20 ? 'Small' : price < 100 ? 'Mid' : 'Large';
+      addTrade(byPriceTier[tier], pnl, isWin);
+
+      // By Time of Day (Eastern)
+      const todBucket = etTotalMinutes < 570 ? 'Pre-Market'
+        : etTotalMinutes < 600 ? 'Open (9:30-10:00)'
+        : etTotalMinutes < 720 ? 'Morning (10:00-12:00)'
+        : 'Afternoon (12:00+)';
+      addTrade(byTimeOfDay[todBucket], pnl, isWin);
     }
 
-    const { data: trades, error } = await supabase
-      .from('trades')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_open', false)
-      .gte('entry_time', dateFrom.toISOString())
-      .order('entry_time', { ascending: true });
-
-    if (error) {
-      return NextResponse.json({ error: 'Failed to fetch trades' }, { status: 500 });
-    }
-
-    const parsedTrades: ParsedTrade[] = (trades || []).map((t) => ({
-      symbol: t.symbol,
-      direction: t.direction as 'long' | 'short',
-      entryTime: new Date(t.entry_time),
-      exitTime: t.exit_time ? new Date(t.exit_time) : null,
-      entryPrice: Number(t.entry_price),
-      exitPrice: t.exit_price ? Number(t.exit_price) : null,
-      quantity: t.quantity,
-      totalCommission: Number(t.total_commission),
-      grossPnl: t.gross_pnl ? Number(t.gross_pnl) : null,
-      netPnl: t.net_pnl ? Number(t.net_pnl) : null,
-      pnlPercent: t.pnl_percent ? Number(t.pnl_percent) : null,
-      holdTimeMinutes: t.hold_time_minutes,
-      positionValue: Number(t.position_value),
-      isOpen: t.is_open,
-      executionHash: t.execution_hash || '',
-      executions: [],
-    }));
-
-    const scorecard = computeScorecard(parsedTrades);
-
-    return NextResponse.json({ scorecard, period });
-  } catch {
+    return NextResponse.json({
+      byHour, byDow, byHoldTime, bySymbol, byPriceTier, byTimeOfDay,
+      totalTrades: allTrades.length, period,
+    });
+  } catch (err) {
+    console.error('Scorecard error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

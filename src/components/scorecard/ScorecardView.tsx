@@ -1,10 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { EdgeScorecard, ScoreEntry } from '@/types';
 
-interface ScorecardData {
-  scorecard: EdgeScorecard;
+interface RawSegment {
+  trades: number;
+  wins: number;
+  totalPnl: number;
+  winPnl: number;
+  lossPnl: number;
+}
+
+interface ScoreEntry {
+  trades: number;
+  winRate: number;
+  avgPnl: number;
+  totalPnl: number;
+  profitFactor: number;
+}
+
+interface ScorecardApiResponse {
+  byHour: Record<string, RawSegment>;
+  byDow: Record<string, RawSegment>;
+  byHoldTime: Record<string, RawSegment>;
+  bySymbol: Record<string, RawSegment>;
+  byPriceTier: Record<string, RawSegment>;
+  byTimeOfDay: Record<string, RawSegment>;
+  totalTrades: number;
   period: string;
 }
 
@@ -23,111 +44,132 @@ for (let h = 0; h < 24; h++) {
 }
 
 const DOW_LABELS: Record<string, string> = {
-  '0': 'Sunday',
-  '1': 'Monday',
-  '2': 'Tuesday',
-  '3': 'Wednesday',
-  '4': 'Thursday',
-  '5': 'Friday',
-  '6': 'Saturday',
+  '0': 'Sunday', '1': 'Monday', '2': 'Tuesday', '3': 'Wednesday',
+  '4': 'Thursday', '5': 'Friday', '6': 'Saturday',
 };
+
+const HOLD_TIME_LABELS: Record<string, string> = {
+  '0-5min': '0-5min holds', '5-15min': '5-15min holds',
+  '15-60min': '15-60min holds', '1-4hr': '1-4hr holds', '4hr+': '4hr+ holds',
+};
+
+function toScoreEntry(raw: RawSegment): ScoreEntry {
+  return {
+    trades: raw.trades,
+    winRate: raw.trades > 0 ? raw.wins / raw.trades : 0,
+    avgPnl: raw.trades > 0 ? raw.totalPnl / raw.trades : 0,
+    totalPnl: raw.totalPnl,
+    profitFactor: raw.lossPnl !== 0 ? raw.winPnl / Math.abs(raw.lossPnl) : raw.winPnl > 0 ? Infinity : 0,
+  };
+}
+
+function toScoreEntries(raw: Record<string, RawSegment>): Record<string, ScoreEntry> {
+  const result: Record<string, ScoreEntry> = {};
+  for (const [key, seg] of Object.entries(raw)) {
+    if (seg.trades > 0) result[key] = toScoreEntry(seg);
+  }
+  return result;
+}
 
 function formatCurrency(value: number): string {
   const prefix = value >= 0 ? '+$' : '-$';
   return `${prefix}${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function hourInsightLabel(h: string): string {
+  const hour = parseInt(h);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const nextH = (hour + 1) % 24;
+  const nextAmpm = nextH >= 12 ? 'PM' : 'AM';
+  const nextH12 = nextH === 0 ? 12 : nextH > 12 ? nextH - 12 : nextH;
+  if (ampm === nextAmpm) return `${h12}:00-${nextH12}:00 ${ampm}`;
+  return `${h12}:00 ${ampm}-${nextH12}:00 ${nextAmpm}`;
+}
+
+interface LabeledSegment {
+  label: string;
+  totalPnl: number;
+  avgPnl: number;
+  trades: number;
+}
+
+function computeInsights(data: ScorecardApiResponse) {
+  const segments: LabeledSegment[] = [];
+  if (data.byHour) {
+    for (const [key, seg] of Object.entries(data.byHour)) {
+      if (seg.trades > 0) segments.push({ label: hourInsightLabel(key), totalPnl: seg.totalPnl, avgPnl: seg.totalPnl / seg.trades, trades: seg.trades });
+    }
+  }
+  if (data.byDow) {
+    for (const [key, seg] of Object.entries(data.byDow)) {
+      if (seg.trades > 0) segments.push({ label: DOW_LABELS[key] || key, totalPnl: seg.totalPnl, avgPnl: seg.totalPnl / seg.trades, trades: seg.trades });
+    }
+  }
+  if (data.byHoldTime) {
+    for (const [key, seg] of Object.entries(data.byHoldTime)) {
+      if (seg.trades > 0) segments.push({ label: HOLD_TIME_LABELS[key] || key, totalPnl: seg.totalPnl, avgPnl: seg.totalPnl / seg.trades, trades: seg.trades });
+    }
+  }
+  const sorted = [...segments].sort((a, b) => b.totalPnl - a.totalPnl);
+  const strengths = sorted.filter(s => s.totalPnl > 0).slice(0, 3).map(s => `${s.label}: ${formatCurrency(s.totalPnl)} total (${s.trades} trades)`);
+  const leaks = sorted.filter(s => s.totalPnl < 0).slice(-3).reverse().map(s => `${s.label}: ${formatCurrency(s.totalPnl)} total (${s.trades} trades)`);
+  const doMore = sorted.filter(s => s.totalPnl > 0).slice(0, 3).map(s => `Trade more during ${s.label}: ${formatCurrency(s.avgPnl)} avg`);
+  const doLess = sorted.filter(s => s.totalPnl < 0).slice(-3).reverse().map(s => `Reduce trading during ${s.label}: ${formatCurrency(s.avgPnl)} avg`);
+  return { strengths, leaks, doMore, doLess };
+}
+
 function ScoreTable({
   title,
   entries,
   labelMap,
+  highlightNegative,
 }: {
   title: string;
   entries: Record<string, ScoreEntry>;
   labelMap?: Record<string, string>;
+  highlightNegative?: boolean;
 }) {
-  const sortedEntries = Object.entries(entries).sort(
-    ([, a], [, b]) => b.totalPnl - a.totalPnl
-  );
+  const sortedEntries = Object.entries(entries).sort(([, a], [, b]) => b.totalPnl - a.totalPnl);
 
   if (sortedEntries.length === 0) {
     return (
-      <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">
-          {title}
-        </h3>
-        <p className="text-sm text-muted">No data available.</p>
+      <div className="bg-panel rounded border border-border p-4">
+        <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest mb-3">{title}</h3>
+        <p className="text-xs text-muted">No data available.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <div className="px-5 pt-5 pb-3">
-        <h3 className="text-sm font-semibold text-muted uppercase tracking-wider">
-          {title}
-        </h3>
+    <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="panel-header px-4 py-3">
+        <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">{title}</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border">
-              <th className="text-left px-5 py-2 text-xs text-muted uppercase font-medium">
-                {title.replace('By ', '')}
-              </th>
-              <th className="text-right px-4 py-2 text-xs text-muted uppercase font-medium">
-                Trades
-              </th>
-              <th className="text-right px-4 py-2 text-xs text-muted uppercase font-medium">
-                Win Rate
-              </th>
-              <th className="text-right px-4 py-2 text-xs text-muted uppercase font-medium">
-                Avg P&L
-              </th>
-              <th className="text-right px-4 py-2 text-xs text-muted uppercase font-medium">
-                Total P&L
-              </th>
-              <th className="text-right px-5 py-2 text-xs text-muted uppercase font-medium">
-                Profit Factor
-              </th>
+            <tr className="border-b border-border bg-surface">
+              <th className="text-left px-4 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">{title.replace('By ', '').replace('Performance by ', '')}</th>
+              <th className="text-right px-3 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">Trades</th>
+              <th className="text-right px-3 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">Win%</th>
+              <th className="text-right px-3 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">Avg P&L</th>
+              <th className="text-right px-3 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">Total P&L</th>
+              <th className="text-right px-4 py-2 text-[10px] text-muted uppercase font-mono font-bold tracking-wider">PF</th>
             </tr>
           </thead>
           <tbody>
             {sortedEntries.map(([key, entry]) => {
               const label = labelMap ? labelMap[key] || key : key;
+              const isSignificantlyNegative = highlightNegative && entry.totalPnl < -100;
               return (
-                <tr
-                  key={key}
-                  className="border-b border-border/50 hover:bg-card-hover transition-colors"
-                >
-                  <td className="px-5 py-2.5 font-medium text-foreground">
-                    {label}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-muted">
-                    {entry.trades}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-muted">
-                    {(entry.winRate * 100).toFixed(1)}%
-                  </td>
-                  <td
-                    className={`px-4 py-2.5 text-right font-mono ${
-                      entry.avgPnl >= 0 ? 'text-profit' : 'text-loss'
-                    }`}
-                  >
-                    {formatCurrency(entry.avgPnl)}
-                  </td>
-                  <td
-                    className={`px-4 py-2.5 text-right font-mono font-medium ${
-                      entry.totalPnl >= 0 ? 'text-profit' : 'text-loss'
-                    }`}
-                  >
-                    {formatCurrency(entry.totalPnl)}
-                  </td>
-                  <td className="px-5 py-2.5 text-right text-muted">
-                    {entry.profitFactor === Infinity
-                      ? '--'
-                      : entry.profitFactor.toFixed(2)}
-                  </td>
+                <tr key={key} className={`border-b border-border/30 hover:bg-surface transition-colors ${isSignificantlyNegative ? 'bg-red/5' : ''}`}>
+                  <td className={`px-4 py-2 font-medium ${isSignificantlyNegative ? 'text-red' : 'text-foreground'}`}>{label}</td>
+                  <td className="px-3 py-2 text-right text-muted font-mono">{entry.trades}</td>
+                  <td className="px-3 py-2 text-right text-muted font-mono">{(entry.winRate * 100).toFixed(1)}%</td>
+                  <td className={`px-3 py-2 text-right font-mono font-bold ${entry.avgPnl >= 0 ? 'text-green' : 'text-red'}`}>{formatCurrency(entry.avgPnl)}</td>
+                  <td className={`px-3 py-2 text-right font-mono font-bold ${entry.totalPnl >= 0 ? 'text-green' : 'text-red'}`}>{formatCurrency(entry.totalPnl)}</td>
+                  <td className="px-4 py-2 text-right text-muted font-mono">{entry.profitFactor === Infinity ? '--' : entry.profitFactor.toFixed(2)}</td>
                 </tr>
               );
             })}
@@ -138,34 +180,20 @@ function ScoreTable({
   );
 }
 
-function InsightSection({
-  title,
-  items,
-  color,
-}: {
-  title: string;
-  items: string[];
-  color: 'profit' | 'loss' | 'accent' | 'warn';
-}) {
+function InsightSection({ title, items, color }: { title: string; items: string[]; color: 'green' | 'red' | 'blue' | 'amber' }) {
   if (items.length === 0) return null;
-
   const colorMap = {
-    profit: 'bg-profit/10 border-profit/20 text-profit',
-    loss: 'bg-loss/10 border-loss/20 text-loss',
-    accent: 'bg-accent/10 border-accent/20 text-accent',
-    warn: 'bg-warn/10 border-warn/20 text-warn',
+    green: 'bg-green/8 border-green/20 text-green',
+    red: 'bg-red/8 border-red/20 text-red',
+    blue: 'bg-blue/8 border-blue/20 text-blue',
+    amber: 'bg-amber/8 border-amber/20 text-amber',
   };
-
   return (
-    <div className={`rounded-xl border p-4 ${colorMap[color]}`}>
-      <h4 className="text-xs font-semibold uppercase tracking-wider mb-2">
-        {title}
-      </h4>
+    <div className={`rounded border p-3 ${colorMap[color]}`}>
+      <h4 className="text-[10px] font-mono font-bold uppercase tracking-widest mb-2">{title}</h4>
       <ul className="space-y-1">
         {items.map((item, i) => (
-          <li key={i} className="text-sm opacity-90">
-            {item}
-          </li>
+          <li key={i} className="text-xs opacity-90">{item}</li>
         ))}
       </ul>
     </div>
@@ -173,7 +201,7 @@ function InsightSection({
 }
 
 export function ScorecardView() {
-  const [data, setData] = useState<ScorecardData | null>(null);
+  const [data, setData] = useState<ScorecardApiResponse | null>(null);
   const [period, setPeriod] = useState('30d');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,8 +215,7 @@ export function ScorecardView() {
         const err = await res.json();
         throw new Error(err.error || 'Failed to load scorecard');
       }
-      const json = await res.json();
-      setData(json);
+      setData(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load scorecard');
     } finally {
@@ -196,43 +223,35 @@ export function ScorecardView() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchScorecard(period);
-  }, [period, fetchScorecard]);
+  useEffect(() => { fetchScorecard(period); }, [period, fetchScorecard]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-green border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="p-4 rounded-lg bg-loss-bg border border-loss/20 text-loss text-sm">
-        {error}
-      </div>
-    );
+    return <div className="p-4 rounded bg-red-bg border border-red/20 text-red text-sm font-mono">{error}</div>;
   }
 
   if (!data) return null;
 
-  const { scorecard } = data;
+  const insights = computeInsights(data);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Edge Scorecard</h2>
-        <div className="flex bg-card rounded-lg border border-border p-1 gap-1">
+        <h2 className="font-display text-2xl tracking-wide">EDGE SCORECARD</h2>
+        <div className="flex bg-surface rounded border border-border p-0.5 gap-0.5">
           {PERIODS.map((p) => (
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
-              className={`px-3 py-1 text-sm rounded-md font-medium transition-colors ${
-                period === p.value
-                  ? 'bg-accent text-white'
-                  : 'text-muted hover:text-foreground'
+              className={`px-3 py-1 text-xs rounded font-mono font-bold transition-colors ${
+                period === p.value ? 'bg-panel text-green border border-green/20' : 'text-muted hover:text-foreground border border-transparent'
               }`}
             >
               {p.label}
@@ -242,19 +261,21 @@ export function ScorecardView() {
       </div>
 
       {/* Insights */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <InsightSection title="Strengths" items={scorecard.strengths} color="profit" />
-        <InsightSection title="Leaks" items={scorecard.leaks} color="loss" />
-        <InsightSection title="Do More" items={scorecard.doMore} color="accent" />
-        <InsightSection title="Do Less" items={scorecard.doLess} color="warn" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <InsightSection title="Strengths" items={insights.strengths} color="green" />
+        <InsightSection title="Leaks" items={insights.leaks} color="red" />
+        <InsightSection title="Do More" items={insights.doMore} color="blue" />
+        <InsightSection title="Do Less" items={insights.doLess} color="amber" />
       </div>
 
       {/* Tables */}
-      <div className="space-y-6">
-        <ScoreTable title="By Hour" entries={scorecard.byHour} labelMap={HOUR_LABELS} />
-        <ScoreTable title="By Day of Week" entries={scorecard.byDow} labelMap={DOW_LABELS} />
-        <ScoreTable title="By Hold Time" entries={scorecard.byHoldTime} />
-        <ScoreTable title="By Ticker" entries={scorecard.byTicker} />
+      <div className="space-y-4">
+        {data.byTimeOfDay && <ScoreTable title="Performance by Time of Day" entries={toScoreEntries(data.byTimeOfDay)} highlightNegative />}
+        {data.byHour && <ScoreTable title="By Hour" entries={toScoreEntries(data.byHour)} labelMap={HOUR_LABELS} />}
+        {data.byDow && <ScoreTable title="By Day of Week" entries={toScoreEntries(data.byDow)} labelMap={DOW_LABELS} />}
+        {data.byHoldTime && <ScoreTable title="By Hold Time" entries={toScoreEntries(data.byHoldTime)} />}
+        {data.byPriceTier && <ScoreTable title="Performance by Stock Type" entries={toScoreEntries(data.byPriceTier)} />}
+        {data.bySymbol && <ScoreTable title="By Ticker" entries={toScoreEntries(data.bySymbol)} />}
       </div>
     </div>
   );

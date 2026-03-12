@@ -11,7 +11,7 @@ import { DebriefView } from '@/components/debrief/DebriefView';
 const TABS = [
   { key: 'patterns', label: 'Patterns' },
   { key: 'scorecard', label: 'Scorecard' },
-  { key: 'cost', label: 'Cost of Behavior' },
+  { key: 'cost', label: 'Cost' },
   { key: 'timeline', label: 'Timeline' },
   { key: 'debrief', label: 'AI Debrief' },
 ] as const;
@@ -46,9 +46,7 @@ function PatternsTab() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPatterns();
-  }, [fetchPatterns]);
+  useEffect(() => { fetchPatterns(); }, [fetchPatterns]);
 
   const handleDismiss = (id: string) => {
     setPatterns((prev) => prev.filter((p) => p.id !== id));
@@ -57,16 +55,14 @@ function PatternsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-green border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 rounded-lg bg-loss-bg border border-loss/20 text-loss text-sm">
-        {error}
-      </div>
+      <div className="p-4 rounded bg-red-bg border border-red/20 text-red text-sm font-mono">{error}</div>
     );
   }
 
@@ -77,14 +73,14 @@ function PatternsTab() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-lg font-medium">No patterns detected</p>
-        <p className="text-sm mt-1">Upload more trades to detect behavioral patterns.</p>
+        <p className="text-sm mt-1 font-mono">Upload more trades to detect behavioral patterns.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted">{patterns.length} active patterns</p>
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted font-mono">{patterns.length} active patterns</p>
       {patterns.map((p) => (
         <PatternCard
           key={p.id}
@@ -102,20 +98,16 @@ function PatternsTab() {
 }
 
 function TimelineTab() {
-  const [date, setDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
-  });
-
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-muted">Session Date:</label>
+        <label className="text-[10px] text-muted font-mono uppercase tracking-wider">Session Date:</label>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="px-3 py-1.5 text-sm rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-accent [color-scheme:dark]"
+          className="px-3 py-1.5 text-xs font-mono rounded bg-surface border border-border text-foreground focus:outline-none focus:border-green/50 [color-scheme:dark]"
         />
       </div>
       <SessionTimeline date={date} />
@@ -124,20 +116,16 @@ function TimelineTab() {
 }
 
 function DebriefTab() {
-  const [date, setDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
-  });
-
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-muted">Session Date:</label>
+        <label className="text-[10px] text-muted font-mono uppercase tracking-wider">Session Date:</label>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="px-3 py-1.5 text-sm rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-accent [color-scheme:dark]"
+          className="px-3 py-1.5 text-xs font-mono rounded bg-surface border border-border text-foreground focus:outline-none focus:border-green/50 [color-scheme:dark]"
         />
       </div>
       <DebriefView date={date} />
@@ -149,25 +137,22 @@ function AnalysisContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeTab = (searchParams.get('tab') as TabKey) || 'patterns';
-
-  const setTab = (tab: TabKey) => {
-    router.push(`/analysis?tab=${tab}`);
-  };
+  const setTab = (tab: TabKey) => { router.push(`/analysis?tab=${tab}`); };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Analysis</h1>
+    <div className="space-y-5">
+      <h1 className="font-display text-3xl tracking-wide">ANALYSIS</h1>
 
       {/* Tab navigation */}
-      <div className="flex border-b border-border overflow-x-auto">
+      <div className="flex bg-surface rounded border border-border p-0.5 gap-0.5 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setTab(tab.key)}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+            className={`px-4 py-2 text-xs font-mono font-bold whitespace-nowrap rounded transition-colors ${
               activeTab === tab.key
-                ? 'border-accent text-accent'
-                : 'border-transparent text-muted hover:text-foreground'
+                ? 'bg-panel text-green border border-green/20'
+                : 'text-muted hover:text-foreground border border-transparent'
             }`}
           >
             {tab.label}
@@ -193,7 +178,7 @@ export default function AnalysisPage() {
       <Suspense
         fallback={
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-green border-t-transparent rounded-full animate-spin" />
           </div>
         }
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface UploadResult {
@@ -28,6 +28,16 @@ export function FileUpload() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [hasExistingTrades, setHasExistingTrades] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/trades?limit=1')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.trades?.length > 0) setHasExistingTrades(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -44,24 +54,15 @@ export function FileUpload() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-
       setProgress(30);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
       setProgress(80);
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error || 'Upload failed. Please check your file format.');
         setProgress(0);
         return;
       }
-
       setProgress(100);
       setResult(data);
     } catch {
@@ -72,84 +73,45 @@ export function FileUpload() {
     }
   }, []);
 
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const onDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
-
-  const onFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
-
-  const reset = useCallback(() => {
-    setResult(null);
-    setError(null);
-    setFileName(null);
-    setProgress(0);
-  }, []);
+  const onDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
+  const onDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
+  const onDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }, [handleFile]);
+  const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) handleFile(file); }, [handleFile]);
+  const reset = useCallback(() => { setResult(null); setError(null); setFileName(null); setProgress(0); }, []);
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">Upload Trades</h1>
-      <p className="text-muted mb-6">
+      <h1 className="font-display text-3xl tracking-wide mb-2">UPLOAD TRADES</h1>
+      <p className="text-muted text-sm mb-6">
         Upload your broker CSV export to import trades for analysis.
       </p>
+
+      {/* Existing trades banner */}
+      {hasExistingTrades && !result && (
+        <div className="mb-4 p-3 rounded bg-blue-bg border border-blue/20 text-blue text-xs font-mono">
+          You have existing trade history. Upload your weekly CSV to track your progress.
+        </div>
+      )}
 
       {/* Drop zone */}
       <div
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        className={`relative border-2 border-dashed rounded-xl p-16 text-center transition-all ${
+        className={`relative border border-dashed rounded p-16 text-center transition-all ${
           isDragging
-            ? 'border-accent bg-accent-bg'
-            : 'border-border-light hover:border-muted bg-card'
+            ? 'border-green bg-green-bg'
+            : 'border-border-light hover:border-muted bg-panel'
         } ${uploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
       >
-        <input
-          type="file"
-          accept=".csv"
-          onChange={onFileSelect}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={uploading}
-        />
-
-        <svg
-          className="w-12 h-12 text-muted mx-auto mb-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-          />
+        <input type="file" accept=".csv" onChange={onFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={uploading} />
+        <svg className="w-12 h-12 text-muted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
         <p className="text-foreground font-medium text-lg mb-1">
           {fileName ? fileName : 'Drop your CSV file here'}
         </p>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted font-mono">
           or click to browse. Supports IBKR trade exports.
         </p>
       </div>
@@ -158,34 +120,28 @@ export function FileUpload() {
       {uploading && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm text-muted">Processing...</span>
-            <span className="text-sm text-muted">{progress}%</span>
+            <span className="text-xs text-muted font-mono">Processing...</span>
+            <span className="text-xs text-muted font-mono">{progress}%</span>
           </div>
-          <div className="w-full bg-border rounded-full h-2">
-            <div
-              className="bg-accent h-2 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="w-full bg-surface rounded-full h-1.5">
+            <div className="bg-green h-1.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
 
       {/* Error display */}
       {error && (
-        <div className="mt-4 p-4 rounded-lg bg-loss-bg border border-loss/20">
+        <div className="mt-4 p-4 rounded bg-red-bg border border-red/20">
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-loss mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-red mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <p className="text-loss font-medium">Upload Error</p>
-              <p className="text-sm text-loss/80 mt-1">{error}</p>
+              <p className="text-red font-medium font-mono text-sm">Upload Error</p>
+              <p className="text-xs text-red/80 mt-1">{error}</p>
             </div>
           </div>
-          <button
-            onClick={reset}
-            className="mt-3 text-sm text-muted hover:text-foreground transition-colors"
-          >
+          <button onClick={reset} className="mt-3 text-xs text-muted hover:text-foreground transition-colors font-mono">
             Try again
           </button>
         </div>
@@ -193,83 +149,60 @@ export function FileUpload() {
 
       {/* Success / Results display */}
       {result && (
-        <div className="mt-4 space-y-4">
-          <div className="p-4 rounded-lg bg-profit-bg border border-profit/20">
-            <p className="text-profit font-semibold text-lg">
+        <div className="mt-4 space-y-3">
+          <div className="p-4 rounded bg-green-bg border border-green/20">
+            <p className="text-green font-mono font-bold text-sm">
               Upload Complete
             </p>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-2xl font-bold text-profit">
-                  {result.tradesImported}
-                </p>
-                <p className="text-xs text-muted">Trades Imported</p>
+                <p className="text-2xl font-mono font-bold text-green">{result.tradesImported}</p>
+                <p className="text-[10px] text-muted font-mono">Imported</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-muted">
-                  {result.duplicatesSkipped}
-                </p>
-                <p className="text-xs text-muted">Duplicates Skipped</p>
+                <p className="text-2xl font-mono font-bold text-muted">{result.duplicatesSkipped}</p>
+                <p className="text-[10px] text-muted font-mono">Duplicates</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-muted">
-                  {result.errors.length}
-                </p>
-                <p className="text-xs text-muted">Errors</p>
+                <p className="text-2xl font-mono font-bold text-muted">{result.errors.length}</p>
+                <p className="text-[10px] text-muted font-mono">Errors</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-muted">
-                  {result.metadata.optionsSkipped}
-                </p>
-                <p className="text-xs text-muted">Options Skipped</p>
+                <p className="text-2xl font-mono font-bold text-muted">{result.metadata.optionsSkipped}</p>
+                <p className="text-[10px] text-muted font-mono">Opts Skipped</p>
               </div>
             </div>
           </div>
 
           {result.warning && (
-            <div className="p-3 rounded-lg bg-warn-bg border border-warn/20 text-warn text-sm">
-              {result.warning}
-            </div>
+            <div className="p-3 rounded bg-amber-bg border border-amber/20 text-amber text-xs font-mono">{result.warning}</div>
           )}
-
           {result.optionsMessage && (
-            <div className="p-3 rounded-lg bg-accent-bg border border-accent/20 text-accent text-sm">
-              {result.optionsMessage}
-            </div>
+            <div className="p-3 rounded bg-blue-bg border border-blue/20 text-blue text-xs font-mono">{result.optionsMessage}</div>
           )}
 
           {result.errors.length > 0 && (
-            <div className="p-4 rounded-lg bg-card border border-border">
-              <p className="text-sm font-medium text-foreground mb-2">
+            <div className="p-4 rounded bg-panel border border-border">
+              <p className="text-xs font-mono font-bold text-foreground mb-2">
                 Parse Errors ({result.errors.length})
               </p>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {result.errors.slice(0, 20).map((err, i) => (
-                  <p key={i} className="text-xs text-muted">
-                    Row {err.row}: {err.message}
-                  </p>
+                  <p key={i} className="text-[10px] text-muted font-mono">Row {err.row}: {err.message}</p>
                 ))}
                 {result.errors.length > 20 && (
-                  <p className="text-xs text-muted">
-                    ...and {result.errors.length - 20} more
-                  </p>
+                  <p className="text-[10px] text-muted font-mono">...and {result.errors.length - 20} more</p>
                 )}
               </div>
             </div>
           )}
 
           <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
-            >
-              View Dashboard
+            <button onClick={() => router.push('/dashboard')} className="px-4 py-2 bg-green text-background rounded text-xs font-mono font-bold hover:bg-green/90 transition-colors">
+              VIEW DASHBOARD
             </button>
-            <button
-              onClick={reset}
-              className="px-4 py-2 border border-border-light text-foreground rounded-lg text-sm font-medium hover:bg-card-hover transition-colors"
-            >
-              Upload Another File
+            <button onClick={reset} className="px-4 py-2 border border-border-light text-foreground rounded text-xs font-mono font-bold hover:bg-panel transition-colors">
+              UPLOAD ANOTHER
             </button>
           </div>
         </div>

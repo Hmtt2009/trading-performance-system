@@ -67,46 +67,46 @@ export function PatternCard({
   const recommendation = PATTERN_RECOMMENDATIONS[patternType] || '';
 
   return (
-    <div className="bg-card rounded-xl border border-border p-5 transition-all hover:border-border-light">
+    <div className="bg-panel rounded border border-border p-4 transition-all hover:border-border-light">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-base font-semibold text-foreground">
+            <h3 className="text-sm font-mono font-bold text-foreground">
               {headline}
             </h3>
             <span
-              className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+              className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
                 confidence === 'high'
-                  ? 'bg-profit/10 text-profit'
-                  : 'bg-warn/10 text-warn'
+                  ? 'bg-green/10 text-green'
+                  : 'bg-amber/10 text-amber'
               }`}
             >
               {confidence.toUpperCase()}
             </span>
             {sessionDate && (
-              <span className="text-xs text-muted">{sessionDate}</span>
+              <span className="text-[10px] text-muted font-mono">{sessionDate}</span>
             )}
           </div>
 
           {dollarImpact !== null && (
-            <p className="text-lg font-bold text-warn mb-2">
+            <p className="text-lg font-mono font-bold text-amber mb-2">
               -${Math.abs(dollarImpact).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              <span className="text-xs text-muted font-normal ml-1">
+              <span className="text-[10px] text-muted font-mono font-normal ml-1">
                 estimated impact
               </span>
             </p>
           )}
 
           {description && (
-            <p className="text-sm text-muted mb-3">{description}</p>
+            <p className="text-xs text-muted mb-3 font-mono">{description}</p>
           )}
 
           {recommendation && (
-            <div className="p-3 rounded-lg bg-accent-bg border border-accent/10">
-              <p className="text-xs text-accent font-medium mb-0.5">
+            <div className="p-3 rounded bg-blue-bg border border-blue/20">
+              <p className="text-[10px] text-blue font-mono font-bold mb-0.5 uppercase tracking-widest">
                 Recommendation
               </p>
-              <p className="text-sm text-muted">{recommendation}</p>
+              <p className="text-xs text-muted">{recommendation}</p>
             </div>
           )}
         </div>

@@ -1,184 +1,241 @@
-'use client';
+import Link from 'next/link';
 
-import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
+const PAIN_POINTS = [
+  'I keep losing right after a big loss',
+  'I close winners too early but hold losers too long',
+  'I trade too much when the market is choppy',
+  "I've tried journaling. I quit after 3 days.",
+];
 
-export default function Home() {
-  const router = useRouter();
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{
-    tradesImported: number;
-    duplicatesSkipped: number;
-    optionsMessage?: string;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const STEPS = [
+  {
+    num: '01',
+    title: 'EXPORT',
+    desc: 'Download your trades from IBKR, Schwab, TD Ameritrade, or Webull. One CSV file.',
+  },
+  {
+    num: '02',
+    title: 'UPLOAD',
+    desc: 'Drag and drop. Done. No manual input. Ever.',
+  },
+  {
+    num: '03',
+    title: 'SEE THE TRUTH',
+    desc: 'Your behavioral patterns. Their dollar cost. What to fix.',
+  },
+];
 
-  const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a CSV file.');
-      return;
-    }
+const PATTERNS = [
+  {
+    name: 'Overtrading',
+    desc: "Trading too much when you shouldn't be",
+    severity: 'HIGH',
+  },
+  {
+    name: 'Size Escalation',
+    desc: 'Betting bigger after losses to make it back',
+    severity: 'HIGH',
+  },
+  {
+    name: 'Revenge Trading',
+    desc: 'Re-entering too fast after a loss',
+    severity: 'MEDIUM',
+  },
+  {
+    name: 'Premature Exit',
+    desc: 'Cutting winners before they finish running',
+    severity: 'MEDIUM',
+  },
+];
 
-    setUploading(true);
-    setError(null);
-    setResult(null);
+const FOR_YOU = [
+  'You trade on IBKR, Schwab, TD Ameritrade, or Webull',
+  "You're still building your edge (0\u20135 years)",
+  "Too honest to pretend you don't have bad habits",
+  "Too lazy to journal every day \u2014 we built this for you",
+];
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+const NOT_FOR_YOU = [
+  'Expert traders with a proven system',
+  'Buy-and-hold investors',
+];
 
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Upload failed');
-        return;
-      }
-
-      setResult({
-        tradesImported: data.tradesImported,
-        duplicatesSkipped: data.duplicatesSkipped,
-        optionsMessage: data.optionsMessage,
-      });
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }, []);
-
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const onDragLeave = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
-
-  const onFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
-
+export default function LandingPage() {
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4">
-      <div className="max-w-2xl w-full text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-          Upload your trades.
-          <br />
-          <span className="text-muted">See what you&apos;re really doing.</span>
-        </h1>
-        <p className="text-lg text-muted mb-10 max-w-lg mx-auto">
-          Detect behavioral patterns like overtrading, revenge trading, and
-          premature exits. Know the dollar cost of your habits.
-        </p>
-
-        <div
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          className={`relative border-2 border-dashed rounded-xl p-12 transition-all cursor-pointer ${
-            isDragging
-              ? 'border-accent bg-accent-bg'
-              : 'border-border-light hover:border-muted bg-card'
-          }`}
-        >
-          <input
-            type="file"
-            accept=".csv"
-            onChange={onFileSelect}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading}
-          />
-
-          {uploading ? (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <p className="text-muted">Processing your trades...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <svg
-                className="w-10 h-10 text-muted"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <p className="text-foreground font-medium">
-                Drop your CSV here or click to browse
-              </p>
-              <p className="text-sm text-muted">
-                Supports IBKR trade exports (.csv)
-              </p>
-            </div>
-          )}
+    <div className="min-h-screen bg-[#070709] text-[#e0e0e8]">
+      {/* Minimal top nav */}
+      <nav className="flex items-center justify-between px-6 py-4 border-b border-[#1c1c22]">
+        <Link href="/" className="font-display text-2xl tracking-wider text-[#00e87a]">
+          FLINCH
+        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/pricing" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+            Pricing
+          </Link>
+          <Link href="/about" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+            About
+          </Link>
+          <Link href="/login" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+            Sign in
+          </Link>
         </div>
+      </nav>
 
-        {error && (
-          <div className="mt-4 p-3 rounded-lg bg-loss-bg border border-loss/20 text-loss text-sm">
-            {error}
-          </div>
-        )}
-
-        {result && (
-          <div className="mt-4 p-4 rounded-lg bg-profit-bg border border-profit/20 text-sm">
-            <p className="text-profit font-medium">
-              {result.tradesImported} trades imported successfully
-            </p>
-            {result.duplicatesSkipped > 0 && (
-              <p className="text-muted mt-1">
-                {result.duplicatesSkipped} duplicates skipped
-              </p>
-            )}
-            {result.optionsMessage && (
-              <p className="text-warn mt-1">{result.optionsMessage}</p>
-            )}
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="mt-3 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
-            >
-              View Dashboard
-            </button>
-          </div>
-        )}
-
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
+      {/* HERO */}
+      <section className="px-6 pt-24 pb-20 max-w-4xl mx-auto text-center">
+        <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl tracking-wide leading-none mb-6">
+          YOU&apos;RE GAMBLING.
+          <br />
+          <span className="text-[#00e87a]">EVERYONE ELSE IS PLANNING TO TAKE YOUR MONEY.</span>
+        </h1>
+        <p className="text-lg sm:text-xl text-[#6b6b78] max-w-2xl mx-auto mb-10 leading-relaxed">
+          Flinch automatically finds the behavioral patterns draining your account &mdash; from a single file upload.
+          No journaling. No effort. Just the truth.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link
+            href="/upload"
+            className="px-8 py-4 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors"
+          >
+            Upload Free &mdash; No Account Needed
+          </Link>
+          <Link
+            href="/dashboard"
+            className="px-8 py-4 border border-[#28282f] text-[#e0e0e8] rounded font-mono font-bold text-sm hover:bg-[#101014] transition-colors"
           >
             Go to Dashboard
-          </button>
-          <button
-            onClick={() => router.push('/upload')}
-            className="px-6 py-3 border border-border-light text-foreground rounded-lg font-medium hover:bg-card-hover transition-colors"
-          >
-            Upload Page
-          </button>
+          </Link>
         </div>
-      </div>
+      </section>
+
+      {/* PAIN SECTION */}
+      <section className="px-6 py-20 border-t border-[#1c1c22]">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-center mb-12">
+            SOUND FAMILIAR?
+          </h2>
+          <div className="space-y-4 mb-8">
+            {PAIN_POINTS.map((point) => (
+              <div
+                key={point}
+                className="flex items-start gap-3 p-4 rounded border border-[#1c1c22] bg-[#0c0c0f]"
+              >
+                <span className="text-[#ff4560] text-lg mt-0.5 shrink-0">&#10060;</span>
+                <p className="text-base text-[#e0e0e8]">&ldquo;{point}&rdquo;</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-[#6b6b78] font-mono">
+            If any of these sound like you &mdash; Flinch will show you exactly what&apos;s happening, in dollars.
+          </p>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="px-6 py-20 border-t border-[#1c1c22]">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-center mb-16">
+            HOW IT WORKS
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {STEPS.map((step) => (
+              <div key={step.num} className="text-center">
+                <div className="font-mono text-[#00e87a] text-4xl font-bold mb-3">
+                  {step.num}
+                </div>
+                <h3 className="font-display text-2xl tracking-wide mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-sm text-[#6b6b78] leading-relaxed">
+                  {step.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4 PATTERNS */}
+      <section className="px-6 py-20 border-t border-[#1c1c22]">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-center mb-16">
+            4 PATTERNS WE DETECT
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {PATTERNS.map((pattern) => (
+              <div
+                key={pattern.name}
+                className="p-6 rounded border border-[#1c1c22] bg-[#0c0c0f] hover:border-[#28282f] transition-colors"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display text-xl tracking-wide">
+                    {pattern.name}
+                  </h3>
+                  <span
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                      pattern.severity === 'HIGH'
+                        ? 'bg-[rgba(255,69,96,0.08)] text-[#ff4560] border border-[#ff4560]/20'
+                        : 'bg-[rgba(245,166,35,0.08)] text-[#f5a623] border border-[#f5a623]/20'
+                    }`}
+                  >
+                    {pattern.severity}
+                  </span>
+                </div>
+                <p className="text-sm text-[#6b6b78]">{pattern.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FOR WHO */}
+      <section className="px-6 py-20 border-t border-[#1c1c22]">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-center mb-16">
+            IS THIS FOR YOU?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              {FOR_YOU.map((item) => (
+                <div key={item} className="flex items-start gap-3">
+                  <span className="text-[#00e87a] text-lg mt-0.5 shrink-0">&#10004;</span>
+                  <p className="text-sm text-[#e0e0e8]">{item}</p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              {NOT_FOR_YOU.map((item) => (
+                <div key={item} className="flex items-start gap-3">
+                  <span className="text-[#ff4560] text-lg mt-0.5 shrink-0">&#10060;</span>
+                  <p className="text-sm text-[#6b6b78]">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CLOSING CTA */}
+      <section className="px-6 py-24 border-t border-[#1c1c22] text-center">
+        <h2 className="font-display text-5xl sm:text-6xl tracking-wide mb-6">
+          STOP GUESSING.
+          <br />
+          <span className="text-[#00e87a]">START SEEING.</span>
+        </h2>
+        <Link
+          href="/upload"
+          className="inline-block mt-6 px-10 py-4 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors"
+        >
+          Upload My Trades Free &rarr;
+        </Link>
+      </section>
+
+      {/* Footer */}
+      <footer className="px-6 py-8 border-t border-[#1c1c22] text-center">
+        <p className="text-xs text-[#6b6b78] font-mono">
+          Flinch &mdash; Built for traders who want the truth.
+        </p>
+      </footer>
     </div>
   );
 }
