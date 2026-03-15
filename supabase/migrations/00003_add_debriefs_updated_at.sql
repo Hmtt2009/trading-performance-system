@@ -20,3 +20,7 @@ CREATE TRIGGER ai_debriefs_updated_at
   BEFORE UPDATE ON public.ai_debriefs
   FOR EACH ROW
   EXECUTE FUNCTION public.update_ai_debriefs_updated_at();
+
+-- Unique constraint required for upsert onConflict: 'user_id,debrief_type,period_start'
+CREATE UNIQUE INDEX IF NOT EXISTS idx_debriefs_user_type_period
+  ON public.ai_debriefs(user_id, debrief_type, period_start);
