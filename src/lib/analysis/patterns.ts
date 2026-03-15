@@ -326,7 +326,7 @@ function groupByDate(
 function deduplicateImpact(patterns: PatternInstance[]): PatternInstance[] {
   // Sort by absolute dollar impact descending so the largest-impact pattern
   // for any shared trade always wins.
-  const indexed = patterns.map((p, i) => ({ pattern: p, originalIdx: i }));
+  const indexed = patterns.map((p, i) => ({ pattern: p, idx: i }));
   indexed.sort(
     (a, b) => Math.abs(b.pattern.dollarImpact) - Math.abs(a.pattern.dollarImpact)
   );
@@ -334,21 +334,21 @@ function deduplicateImpact(patterns: PatternInstance[]): PatternInstance[] {
   // Set of trade indices whose dollar impact has already been attributed
   const attributedTradeIndices = new Set<number>();
 
-  for (const entry of indexed) {
-    const involvedIndices = entry.pattern.involvedTradeIndices;
+  for (const { pattern, idx } of indexed) {
+    const involvedIndices = pattern.involvedTradeIndices;
 
     // Check if ANY involved trade has already been attributed
-    const hasOverlap = involvedIndices.some((idx) =>
-      attributedTradeIndices.has(idx)
+    const hasOverlap = involvedIndices.some((i) =>
+      attributedTradeIndices.has(i)
     );
 
     if (hasOverlap) {
       // Zero out this pattern's impact (keep the detection but not the dollar count)
-      entry.pattern.dollarImpact = 0;
+      patterns[idx].dollarImpact = 0;
     } else {
       // Attribute all involved trade indices to this pattern
-      for (const idx of involvedIndices) {
-        attributedTradeIndices.add(idx);
+      for (const i of involvedIndices) {
+        attributedTradeIndices.add(i);
       }
     }
   }
