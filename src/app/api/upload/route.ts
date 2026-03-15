@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
+import { getBrokerDetailsFromFormat } from '@/lib/brokers';
 import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -85,6 +86,8 @@ export async function POST(request: NextRequest) {
     // Parse the CSV
     const parseResult = parseTradeCSV(csvContent, existingHashes);
 
+    const brokerDetails = getBrokerDetailsFromFormat(parseResult.metadata.brokerFormat);
+
     // Check for fatal errors
     if (parseResult.errors.length > 0 && parseResult.trades.length === 0) {
       await supabase
@@ -106,12 +109,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!brokerDetails) {
+      await supabase
+        .from('file_uploads')
+        .update({
+          status: 'failed',
+          broker_format: parseResult.metadata.brokerFormat,
+          error_message: 'Unsupported broker format',
+          errors_count: parseResult.errors.length || 1,
+        })
+        .eq('id', uploadRecord.id);
+
+      return NextResponse.json(
+        {
+          error: 'Unsupported broker format',
+          uploadId: uploadRecord.id,
+        },
+        { status: 422 }
+      );
+    }
+
     // Get or create broker account
     const { data: brokerAccount } = await supabase
       .from('broker_accounts')
       .select()
       .eq('user_id', user.id)
-      .eq('broker_name', 'ibkr')
+      .eq('broker_name', brokerDetails.brokerName)
       .single();
 
     let brokerAccountId: string;
@@ -122,8 +145,8 @@ export async function POST(request: NextRequest) {
         .from('broker_accounts')
         .insert({
           user_id: user.id,
-          broker_name: 'ibkr',
-          account_label: 'IBKR Account',
+          broker_name: brokerDetails.brokerName,
+          account_label: brokerDetails.accountLabel,
         })
         .select()
         .single();
