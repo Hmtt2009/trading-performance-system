@@ -210,14 +210,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Update upload record
+    const totalErrors = parseResult.errors.length + failedInserts;
+    const uploadStatus = insertedTrades.length === 0 && failedInserts > 0 ? 'failed' : 'completed';
     await supabase
       .from('file_uploads')
       .update({
-        status: 'completed',
+        status: uploadStatus,
         broker_format: parseResult.metadata.brokerFormat,
         trades_parsed: insertedTrades.length,
         duplicates_skipped: duplicatesSkipped + parseResult.duplicateHashes.length,
-        errors_count: parseResult.errors.length,
+        errors_count: totalErrors,
       })
       .eq('id', uploadRecord.id);
 

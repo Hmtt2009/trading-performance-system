@@ -7,6 +7,7 @@ interface UploadResult {
   uploadId: string;
   tradesImported: number;
   duplicatesSkipped: number;
+  failedInserts: number;
   errors: { row: number; message: string }[];
   metadata: {
     brokerFormat: string;
@@ -163,6 +164,12 @@ export function FileUpload() {
                 <p className="text-2xl font-mono font-bold text-muted">{result.duplicatesSkipped}</p>
                 <p className="text-[10px] text-muted font-mono">Duplicates</p>
               </div>
+              {result.failedInserts > 0 && (
+                <div>
+                  <p className="text-2xl font-mono font-bold text-red">{result.failedInserts}</p>
+                  <p className="text-[10px] text-muted font-mono">Failed</p>
+                </div>
+              )}
               <div>
                 <p className="text-2xl font-mono font-bold text-muted">{result.errors.length}</p>
                 <p className="text-[10px] text-muted font-mono">Errors</p>
@@ -174,6 +181,11 @@ export function FileUpload() {
             </div>
           </div>
 
+          {result.failedInserts > 0 && (
+            <div className="p-3 rounded bg-red-bg border border-red/20 text-red text-xs font-mono">
+              {result.failedInserts} trade{result.failedInserts > 1 ? 's' : ''} failed to insert. These trades were not imported and may need to be re-uploaded.
+            </div>
+          )}
           {result.warning && (
             <div className="p-3 rounded bg-amber-bg border border-amber/20 text-amber text-xs font-mono">{result.warning}</div>
           )}
