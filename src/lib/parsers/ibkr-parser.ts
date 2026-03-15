@@ -113,6 +113,16 @@ function findTradeDataStart(lines: string[]): { startIndex: number; format: stri
 }
 
 /**
+ * CSV-escape a cell value: quote it if it contains commas, quotes, or newlines.
+ */
+function csvEscape(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/**
  * For Activity Statement format, strip section prefix columns ("Trades","Data",...)
  * and rebuild clean CSV from header + data rows only.
  */
@@ -140,12 +150,10 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
 
     const rowType = cells[1]?.trim().toLowerCase();
 
-    if (rowType === 'header') {
-      // Skip section name (0), row type (1), and DataDiscriminator column (2)
-      result.push(cells.slice(3).join(','));
-    } else if (rowType === 'data') {
-      // Skip section name (0), row type (1), and DataDiscriminator value (2)
-      result.push(cells.slice(3).join(','));
+    if (rowType === 'header' || rowType === 'data') {
+      // Skip section name (0), row type (1), and DataDiscriminator column/value (2)
+      // Re-escape values that contain commas (e.g. Date/Time: "2026-01-02, 14:06:43")
+      result.push(cells.slice(3).map(csvEscape).join(','));
     }
     // Skip SubTotal, Total, Notes rows
   }
