@@ -1,4 +1,4 @@
-import type { ParsedTrade, BaselineData, SessionAnalysis, CostOfBehavior } from '@/types';
+import type { ParsedTrade, BaselineData, SessionAnalysis, CostOfBehavior, PatternType } from '@/types';
 import { detectPatterns } from './patterns';
 
 /**
@@ -68,9 +68,9 @@ export function computeCostOfBehavior(
     actualPnl: Math.round(actualPnl * 100) / 100,
     simulatedPnlWithoutPatterns: Math.round(simulatedPnlWithoutPatterns * 100) / 100,
     byPattern: [...byType.entries()].map(([type, data]) => ({
-      patternType: type as ParsedTrade['direction'] extends string ? typeof type : never,
+      patternType: type as PatternType,
       instances: data.instances,
       totalDollarImpact: Math.round(data.totalImpact * 100) / 100,
-    })) as CostOfBehavior['byPattern'],
+    })),
   };
 }
