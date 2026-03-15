@@ -331,25 +331,21 @@ function deduplicateImpact(patterns: PatternInstance[]): PatternInstance[] {
     (a, b) => Math.abs(b.pattern.dollarImpact) - Math.abs(a.pattern.dollarImpact)
   );
 
-  // Set of trade indices whose dollar impact has already been attributed
-  const attributedTradeIndices = new Set<number>();
+  // Track which trigger trade indices have had their dollar impact attributed.
+  // We use triggerTradeIndex (not involvedTradeIndices) because dollarImpact
+  // derives from the trigger trade's P&L, while involvedTradeIndices includes
+  // context trades (e.g., prior losses in size_escalation) that don't contribute
+  // to the dollar impact calculation.
+  const attributedTriggers = new Set<number>();
 
-  for (const { pattern, idx } of indexed) {
-    const involvedIndices = pattern.involvedTradeIndices;
+  for (const { idx } of indexed) {
+    const trigger = patterns[idx].triggerTradeIndex;
 
-    // Check if ANY involved trade has already been attributed
-    const hasOverlap = involvedIndices.some((i) =>
-      attributedTradeIndices.has(i)
-    );
-
-    if (hasOverlap) {
-      // Zero out this pattern's impact (keep the detection but not the dollar count)
+    if (attributedTriggers.has(trigger)) {
+      // Another pattern already claimed this trigger trade's impact
       patterns[idx].dollarImpact = 0;
     } else {
-      // Attribute all involved trade indices to this pattern
-      for (const i of involvedIndices) {
-        attributedTradeIndices.add(i);
-      }
+      attributedTriggers.add(trigger);
     }
   }
 
