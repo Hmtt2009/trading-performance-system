@@ -61,16 +61,16 @@ export function computeCostOfBehavior(
   );
 
   // Simulated P&L = actual P&L + behavior cost (since cost is negative impact)
-  const simulatedPnlWithoutPatterns = actualPnl + totalBehaviorCost;
+  const simulatedPnl = actualPnl + totalBehaviorCost;
 
   return {
     totalBehaviorCost: Math.round(totalBehaviorCost * 100) / 100,
     actualPnl: Math.round(actualPnl * 100) / 100,
-    simulatedPnlWithoutPatterns: Math.round(simulatedPnlWithoutPatterns * 100) / 100,
+    simulatedPnl: Math.round(simulatedPnl * 100) / 100,
     byPattern: [...byType.entries()].map(([type, data]) => ({
-      patternType: type as ParsedTrade['direction'] extends string ? typeof type : never,
+      patternType: type as CostOfBehavior['byPattern'][number]['patternType'],
       instances: data.instances,
-      totalDollarImpact: Math.round(data.totalImpact * 100) / 100,
-    })) as CostOfBehavior['byPattern'],
+      totalImpact: Math.round(data.totalImpact * 100) / 100,
+    })),
   };
 }
