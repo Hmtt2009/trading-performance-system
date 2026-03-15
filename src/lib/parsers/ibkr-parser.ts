@@ -84,7 +84,7 @@ function generateExecutionHash(exec: RawExecution): string {
  * IBKR files may have header/metadata rows before the actual trade data.
  */
 function findTradeDataStart(lines: string[]): { startIndex: number; format: string } | null {
-  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Check for Activity Statement format: "Trades","Header","Symbol",...
     if (
