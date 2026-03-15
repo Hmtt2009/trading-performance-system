@@ -56,10 +56,14 @@ export async function GET(request: NextRequest) {
 
     const etFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
+      weekday: 'short',
       hour: 'numeric',
       minute: 'numeric',
       hour12: false,
     });
+    const dowMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
 
     for (const t of allTrades) {
       const pnl = Number(t.net_pnl || 0);
@@ -76,8 +80,8 @@ export async function GET(request: NextRequest) {
       if (!byHour[etHour]) byHour[etHour] = emptySegment();
       addTrade(byHour[etHour], pnl, isWin);
 
-      // By Day of Week
-      const d = entryDate.getUTCDay();
+      // By Day of Week (Eastern time)
+      const d = dowMap[parts.find(p => p.type === 'weekday')?.value || 'Sun'];
       if (!byDow[d]) byDow[d] = emptySegment();
       addTrade(byDow[d], pnl, isWin);
 
