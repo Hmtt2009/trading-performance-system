@@ -87,7 +87,7 @@ function detectOvertrading(
       confidence: 'high',
       severity: excessCount > baseline.avgTradesPerDay ? 'severe' : 'moderate',
       triggerTradeIndex: triggerIndex,
-      involvedTradeIndices: allIndices,
+      involvedTradeIndices: allIndices.slice(-excessCount),
       dollarImpact,
       description,
       detectionData: {
@@ -324,29 +324,33 @@ function groupByDate(
 
 /**
  * If a trade is flagged by multiple patterns, avoid double-counting dollar impact.
- * Keep the pattern with the largest absolute dollar impact as the primary.
+ * We check all involvedTradeIndices (not just triggerTradeIndex) for overlap.
+ * When two patterns share any involved trade, the one with the smaller absolute
+ * dollar impact has its impact zeroed out (the detection is kept).
  */
 function deduplicateImpact(patterns: PatternInstance[]): PatternInstance[] {
-  // Track which trade indices have been counted
-  const counted = new Map<number, { impact: number; patternIdx: number }>();
+  // Sort by absolute dollar impact descending so the largest-impact pattern
+  // for any shared trade always wins.
+  const indexed = patterns.map((p, i) => ({ pattern: p, idx: i }));
+  indexed.sort(
+    (a, b) => Math.abs(b.pattern.dollarImpact) - Math.abs(a.pattern.dollarImpact)
+  );
 
-  for (let i = 0; i < patterns.length; i++) {
-    const pattern = patterns[i];
-    const triggerIdx = pattern.triggerTradeIndex;
+  // Track which trigger trade indices have had their dollar impact attributed.
+  // We use triggerTradeIndex (not involvedTradeIndices) because dollarImpact
+  // derives from the trigger trade's P&L, while involvedTradeIndices includes
+  // context trades (e.g., prior losses in size_escalation) that don't contribute
+  // to the dollar impact calculation.
+  const attributedTriggers = new Set<number>();
 
-    const existing = counted.get(triggerIdx);
-    if (existing) {
-      // Keep the one with larger absolute impact
-      if (Math.abs(pattern.dollarImpact) > Math.abs(existing.impact)) {
-        // Zero out the old one's impact
-        patterns[existing.patternIdx].dollarImpact = 0;
-        counted.set(triggerIdx, { impact: pattern.dollarImpact, patternIdx: i });
-      } else {
-        // Zero out this one's impact (keep the detection but not the dollar count)
-        pattern.dollarImpact = 0;
-      }
+  for (const { idx } of indexed) {
+    const trigger = patterns[idx].triggerTradeIndex;
+
+    if (attributedTriggers.has(trigger)) {
+      // Another pattern already claimed this trigger trade's impact
+      patterns[idx].dollarImpact = 0;
     } else {
-      counted.set(triggerIdx, { impact: pattern.dollarImpact, patternIdx: i });
+      attributedTriggers.add(trigger);
     }
   }
 
