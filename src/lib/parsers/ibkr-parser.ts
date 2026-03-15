@@ -135,10 +135,11 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
     const rowType = cells[1]?.trim().toLowerCase();
 
     if (rowType === 'header') {
-      // Use columns starting from index 2 (skip section name and row type)
-      result.push(cells.slice(2).join(','));
+      // Skip section name (0), row type (1), and DataDiscriminator column (2)
+      result.push(cells.slice(3).join(','));
     } else if (rowType === 'data') {
-      result.push(cells.slice(2).join(','));
+      // Skip section name (0), row type (1), and DataDiscriminator value (2)
+      result.push(cells.slice(3).join(','));
     }
     // Skip SubTotal, Total, Notes rows
   }
