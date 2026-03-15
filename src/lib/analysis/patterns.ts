@@ -48,6 +48,7 @@ function detectOvertrading(
     if (dayTrades.length <= effectiveThreshold) continue;
 
     const excessCount = dayTrades.length - Math.ceil(effectiveThreshold);
+    if (excessCount <= 0) continue;
     // The "excess" trades are the last N trades of the day
     const excessTrades = dayTrades.slice(-excessCount);
     const dollarImpact = excessTrades.reduce((s, t) => s + (t.netPnl || 0), 0);

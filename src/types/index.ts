@@ -100,11 +100,11 @@ export interface SessionAnalysis {
 export interface CostOfBehavior {
   totalBehaviorCost: number;
   actualPnl: number;
-  simulatedPnlWithoutPatterns: number;
+  simulatedPnl: number;
   byPattern: {
     patternType: PatternType;
     instances: number;
-    totalDollarImpact: number;
+    totalImpact: number;
   }[];
 }
 

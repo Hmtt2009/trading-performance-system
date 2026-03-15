@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
     let cum = 0; let cumW = 0;
     const equityCurveComparison = (sessions || []).map(sess => {
       cum += Number(sess.net_pnl); cumW += Number(sess.net_pnl) + Number(sess.behavior_cost);
-      return { date: sess.session_date, actual: Math.round(cum * 100) / 100, withoutPatterns: Math.round(cumW * 100) / 100 };
+      return { date: sess.session_date, actual: Math.round(cum * 100) / 100, simulated: Math.round(cumW * 100) / 100 };
     });
-    return NextResponse.json({ totalBehaviorCost: Math.round(totalBehaviorCost*100)/100, totalNetPnl: Math.round(totalNetPnl*100)/100, estimatedPnlWithout: Math.round((totalNetPnl+totalBehaviorCost)*100)/100, byPattern, equityCurveComparison, period });
+    const byPatternArray = Object.entries(byPattern).map(([patternType, val]) => ({ patternType, instances: val.count, totalImpact: Math.round(val.totalImpact * 100) / 100 }));
+    return NextResponse.json({ totalBehaviorCost: Math.round(totalBehaviorCost*100)/100, actualPnl: Math.round(totalNetPnl*100)/100, simulatedPnl: Math.round((totalNetPnl+totalBehaviorCost)*100)/100, byPattern: byPatternArray, equityCurveComparison, period });
   } catch (err) { console.error('Cost error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }
