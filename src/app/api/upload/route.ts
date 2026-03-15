@@ -7,6 +7,7 @@ import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
   let uploadRecordId: string | null = null;
+  let uploadCompleted = false;
   let supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>> | null = null;
 
   try {
@@ -211,6 +212,8 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', uploadRecord.id);
 
+    uploadCompleted = true;
+
     // Compute/update baseline and sessions
     const { data: allUserTrades } = await supabase
       .from('trades')
@@ -354,7 +357,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    if (supabase && uploadRecordId) {
+    if (supabase && uploadRecordId && !uploadCompleted) {
       try {
         await supabase.from('file_uploads').update({ status: 'failed', error_message: 'Internal server error' }).eq('id', uploadRecordId);
       } catch { /* best-effort cleanup */ }
