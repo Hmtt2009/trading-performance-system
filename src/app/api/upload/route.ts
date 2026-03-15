@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
     // Insert trades
     const insertedTrades: { id: string; trade: ParsedTrade }[] = [];
     let duplicatesSkipped = 0;
+    let failedInserts = 0;
 
     for (const trade of parseResult.trades) {
       // Check for duplicate trade hash
@@ -184,6 +185,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
         console.error('Failed to insert trade:', tradeError);
+        failedInserts++;
         continue;
       }
 
@@ -351,6 +353,7 @@ export async function POST(request: NextRequest) {
       uploadId: uploadRecord.id,
       tradesImported: insertedTrades.length,
       duplicatesSkipped: duplicatesSkipped + parseResult.duplicateHashes.length,
+      failedInserts,
       errors: parseResult.errors,
       metadata: parseResult.metadata,
       warning:
