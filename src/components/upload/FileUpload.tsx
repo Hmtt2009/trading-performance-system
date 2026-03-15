@@ -151,32 +151,26 @@ export function FileUpload() {
       {/* Success / Results display */}
       {result && (
         <div className="mt-4 space-y-3">
-          <div className="p-4 rounded bg-green-bg border border-green/20">
-            <p className="text-green font-mono font-bold text-sm">
-              Upload Complete
+          <div className={`p-4 rounded border ${result.tradesImported === 0 && result.failedInserts > 0 ? 'bg-red-bg border-red/20' : 'bg-green-bg border-green/20'}`}>
+            <p className={`font-mono font-bold text-sm ${result.tradesImported === 0 && result.failedInserts > 0 ? 'text-red' : 'text-green'}`}>
+              {result.tradesImported === 0 && result.failedInserts > 0 ? 'Upload Failed' : 'Upload Complete'}
             </p>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-2xl font-mono font-bold text-green">{result.tradesImported}</p>
+                <p className={`text-2xl font-mono font-bold ${result.tradesImported > 0 ? 'text-green' : 'text-muted'}`}>{result.tradesImported}</p>
                 <p className="text-[10px] text-muted font-mono">Imported</p>
               </div>
               <div>
                 <p className="text-2xl font-mono font-bold text-muted">{result.duplicatesSkipped}</p>
                 <p className="text-[10px] text-muted font-mono">Duplicates</p>
               </div>
-              {result.failedInserts > 0 && (
-                <div>
-                  <p className="text-2xl font-mono font-bold text-red">{result.failedInserts}</p>
-                  <p className="text-[10px] text-muted font-mono">Failed</p>
-                </div>
-              )}
+              <div>
+                <p className={`text-2xl font-mono font-bold ${result.failedInserts > 0 ? 'text-red' : 'text-muted'}`}>{result.failedInserts || 0}</p>
+                <p className="text-[10px] text-muted font-mono">Failed</p>
+              </div>
               <div>
                 <p className="text-2xl font-mono font-bold text-muted">{result.errors.length}</p>
                 <p className="text-[10px] text-muted font-mono">Errors</p>
-              </div>
-              <div>
-                <p className="text-2xl font-mono font-bold text-muted">{result.metadata.optionsSkipped}</p>
-                <p className="text-[10px] text-muted font-mono">Opts Skipped</p>
               </div>
             </div>
           </div>
