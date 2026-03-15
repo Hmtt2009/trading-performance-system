@@ -7,9 +7,9 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase is not configured, skip auth entirely
+  // If Supabase is not configured, block access to prevent auth bypass
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next();
+    return new NextResponse('Service unavailable: authentication not configured', { status: 503 });
   }
 
   let supabaseResponse = NextResponse.next({ request });
