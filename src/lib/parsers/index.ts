@@ -11,7 +11,7 @@ type BrokerType = 'ibkr' | 'schwab' | 'tdameritrade' | 'webull' | 'unknown';
  */
 export function detectBroker(csvContent: string): BrokerType {
   // Check the first 10 lines for broker-specific signatures
-  const lines = csvContent.split(/\r?\n/).slice(0, 15);
+  const lines = csvContent.split(/\r?\n/).slice(0, 50);
   const header = lines.join('\n');
 
   // IBKR: rows contain "Trades,Data,Order" or Activity Statement / Flex Query patterns
