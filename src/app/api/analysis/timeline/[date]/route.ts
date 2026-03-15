@@ -7,6 +7,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const supabase = await (await import('@/lib/supabase/server')).createClient();
     const { date } = await params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
     const nextDate = new Date(date); nextDate.setDate(nextDate.getDate() + 1);
     const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).gte('entry_time', date).lt('entry_time', nextDate.toISOString().split('T')[0]).order('entry_time', { ascending: true });
     const tradeIds = (trades || []).map((t: { id: string }) => t.id);
