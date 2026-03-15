@@ -19,9 +19,13 @@ export function detectPatterns(
     (a, b) => a.entryTime.getTime() - b.entryTime.getTime()
   );
 
+  // Build O(1) lookup map to avoid O(n) indexOf scans in pattern detectors
+  const tradeIndexMap = new Map<ParsedTrade, number>();
+  sorted.forEach((t, i) => tradeIndexMap.set(t, i));
+
   const patterns: PatternInstance[] = [];
 
-  patterns.push(...detectOvertrading(sorted, baseline));
+  patterns.push(...detectOvertrading(sorted, baseline, tradeIndexMap));
   patterns.push(...detectSizeEscalation(sorted, baseline));
   patterns.push(...detectRapidReentry(sorted, baseline));
   patterns.push(...detectPrematureExit(sorted, baseline));
@@ -35,7 +39,8 @@ export function detectPatterns(
 
 function detectOvertrading(
   trades: ParsedTrade[],
-  baseline: BaselineData
+  baseline: BaselineData,
+  tradeIndexMap: Map<ParsedTrade, number>
 ): PatternInstance[] {
   const patterns: PatternInstance[] = [];
   const byDate = groupByDate(trades);
@@ -53,7 +58,7 @@ function detectOvertrading(
     const excessTrades = dayTrades.slice(-excessCount);
     const dollarImpact = excessTrades.reduce((s, t) => s + (t.netPnl || 0), 0);
 
-    const allIndices = dayTrades.map((t) => trades.indexOf(t));
+    const allIndices = dayTrades.map((t) => tradeIndexMap.get(t) ?? -1);
     const triggerIndex = allIndices[allIndices.length - 1];
 
     // Check for same-ticker churn
