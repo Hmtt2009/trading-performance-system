@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
+import { getPostExitPriceData } from '@/lib/market/postExitPrice';
 import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -336,6 +337,66 @@ export async function POST(request: NextRequest) {
               detection_data: pattern.detectionData,
             });
             if (patternError) console.error('Failed to insert pattern:', patternError);
+          }
+
+          // Enrich premature_exit patterns with post-exit price data
+          try {
+            const prematureExitPatterns = session.patterns.filter(
+              (p) => p.patternType === 'premature_exit'
+            );
+            for (const pattern of prematureExitPatterns) {
+              const trade = dayTrades[pattern.triggerTradeIndex];
+              if (!trade?.exitTime || !trade.exitPrice) continue;
+
+              const postExitData = await getPostExitPriceData(
+                trade.symbol,
+                trade.exitTime
+              );
+              if (!postExitData) continue;
+
+              // Compute actual dollar impact using real price movement
+              const triggerDbTrade = allUserTrades.find(
+                (t) => t.execution_hash === trade.executionHash
+              );
+              if (!triggerDbTrade) continue;
+
+              let actualLeftOnTable: number | null = null;
+              // Use the best available future price (4h > 2h > 1h)
+              const futurePrice = postExitData.priceAt4h ?? postExitData.priceAt2h ?? postExitData.priceAt1h;
+              if (futurePrice != null) {
+                if (trade.direction === 'long') {
+                  actualLeftOnTable = Math.max(0, (futurePrice - trade.exitPrice) * trade.quantity);
+                } else {
+                  actualLeftOnTable = Math.max(0, (trade.exitPrice - futurePrice) * trade.quantity);
+                }
+              }
+
+              const updatedDetectionData = {
+                ...pattern.detectionData,
+                postExitData,
+                postExitEnriched: true,
+              };
+
+              const updates: Record<string, unknown> = {
+                detection_data: updatedDetectionData,
+              };
+
+              if (actualLeftOnTable != null) {
+                updates.dollar_impact = Math.round(actualLeftOnTable * 100) / 100;
+                const moveDesc = postExitData.direction === 'up' ? 'rose' : postExitData.direction === 'down' ? 'fell' : 'stayed flat';
+                updates.description = `Early exit on ${trade.symbol}: took $${(trade.netPnl ?? 0).toFixed(0)} profit after ${trade.holdTimeMinutes} min. Price ${moveDesc} ${postExitData.maxMovePercent}% in the next 4 hours. Actual left on table: ~$${Math.round(actualLeftOnTable)}.`;
+              }
+
+              await supabase
+                .from('pattern_detections')
+                .update(updates)
+                .eq('session_id', sessionRecord.id)
+                .eq('trigger_trade_id', triggerDbTrade.id)
+                .eq('pattern_type', 'premature_exit');
+            }
+          } catch (enrichError) {
+            // Post-exit enrichment is best-effort — never fail the upload
+            console.error('Post-exit enrichment error:', enrichError);
           }
         }
       }
