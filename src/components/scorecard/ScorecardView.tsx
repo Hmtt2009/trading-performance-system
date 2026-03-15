@@ -59,7 +59,7 @@ function toScoreEntry(raw: RawSegment): ScoreEntry {
     winRate: raw.trades > 0 ? raw.wins / raw.trades : 0,
     avgPnl: raw.trades > 0 ? raw.totalPnl / raw.trades : 0,
     totalPnl: raw.totalPnl,
-    profitFactor: raw.lossPnl !== 0 ? raw.winPnl / Math.abs(raw.lossPnl) : raw.winPnl > 0 ? Infinity : 0,
+    profitFactor: raw.lossPnl !== 0 ? raw.winPnl / Math.abs(raw.lossPnl) : raw.winPnl > 0 ? 1_000_000 : 0,
   };
 }
 
@@ -169,7 +169,7 @@ function ScoreTable({
                   <td className="px-3 py-2 text-right text-muted font-mono">{(entry.winRate * 100).toFixed(1)}%</td>
                   <td className={`px-3 py-2 text-right font-mono font-bold ${entry.avgPnl >= 0 ? 'text-green' : 'text-red'}`}>{formatCurrency(entry.avgPnl)}</td>
                   <td className={`px-3 py-2 text-right font-mono font-bold ${entry.totalPnl >= 0 ? 'text-green' : 'text-red'}`}>{formatCurrency(entry.totalPnl)}</td>
-                  <td className="px-4 py-2 text-right text-muted font-mono">{entry.profitFactor === Infinity ? '--' : entry.profitFactor.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right text-muted font-mono">{entry.profitFactor >= 1_000_000 ? '--' : entry.profitFactor.toFixed(2)}</td>
                 </tr>
               );
             })}

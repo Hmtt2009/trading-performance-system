@@ -45,7 +45,7 @@ function computeScoreEntry(trades: ParsedTrade[]): ScoreEntry {
     winRate: Math.round((wins.length / trades.length) * 10000) / 10000,
     avgPnl: Math.round((totalPnl / trades.length) * 100) / 100,
     totalPnl: Math.round(totalPnl * 100) / 100,
-    profitFactor: grossLosses > 0 ? Math.round((grossWins / grossLosses) * 100) / 100 : grossWins > 0 ? Infinity : 0,
+    profitFactor: grossLosses > 0 ? Math.round((grossWins / grossLosses) * 100) / 100 : grossWins > 0 ? 1_000_000 : 0,
   };
 }
 
