@@ -16,7 +16,7 @@ export interface User {
 export interface BrokerAccount {
   id: string;
   user_id: string;
-  broker_name: 'ibkr' | 'schwab' | 'webull';
+  broker_name: 'ibkr' | 'schwab' | 'tdameritrade' | 'webull';
   account_label: string | null;
   created_at: string;
 }

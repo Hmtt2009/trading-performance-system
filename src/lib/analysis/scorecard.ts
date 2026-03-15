@@ -80,7 +80,8 @@ function computeByDow(trades: ParsedTrade[]): Record<string, ScoreEntry> {
 function computeByHoldTime(trades: ParsedTrade[]): Record<string, ScoreEntry> {
   const groups: Record<string, ParsedTrade[]> = {};
   for (const t of trades) {
-    const mins = t.holdTimeMinutes || 0;
+    if (t.holdTimeMinutes == null) continue;
+    const mins = t.holdTimeMinutes;
     for (const [bucket, [min, max]] of Object.entries(HOLD_TIME_BUCKETS)) {
       if (mins >= min && mins < max) {
         if (!groups[bucket]) groups[bucket] = [];
