@@ -114,7 +114,10 @@ export async function POST(request: NextRequest) {
         })
         .select()
         .single();
-      brokerAccountId = newAccount!.id;
+      if (!newAccount) {
+        return NextResponse.json({ error: 'Failed to create broker account' }, { status: 500 });
+      }
+      brokerAccountId = newAccount.id;
     }
 
     // Insert trades
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest) {
 
       // Insert executions
       for (const exec of trade.executions) {
-        await supabase.from('trade_executions').insert({
+        const { error: execError } = await supabase.from('trade_executions').insert({
           trade_id: insertedTrade.id,
           file_upload_id: uploadRecord.id,
           side: exec.side,
@@ -184,6 +187,9 @@ export async function POST(request: NextRequest) {
           executed_at: exec.dateTime.toISOString(),
           raw_data: exec.rawRow,
         });
+        if (execError) {
+          console.error('Failed to insert execution:', execError);
+        }
       }
     }
 
@@ -229,7 +235,7 @@ export async function POST(request: NextRequest) {
 
       // Update baseline
       const baseline = computeBaseline(parsedTrades);
-      await supabase
+      const { error: baselineError } = await supabase
         .from('trader_baselines')
         .upsert({
           user_id: user.id,
@@ -247,6 +253,7 @@ export async function POST(request: NextRequest) {
           performance_by_dow: baseline.performanceByDow,
           computed_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
+      if (baselineError) console.error('Failed to update baseline:', baselineError);
 
       // Create/update session records for newly imported dates
       const newDates = new Set(
@@ -261,7 +268,7 @@ export async function POST(request: NextRequest) {
         );
         const session = analyzeSession(dayTrades, baseline, date);
 
-        await supabase.from('trading_sessions').upsert(
+        const { error: sessionError } = await supabase.from('trading_sessions').upsert(
           {
             user_id: user.id,
             session_date: date,
@@ -276,6 +283,7 @@ export async function POST(request: NextRequest) {
           },
           { onConflict: 'user_id,session_date' }
         );
+        if (sessionError) console.error('Failed to update session:', sessionError);
 
         // Store pattern detections
         const { data: sessionRecord } = await supabase
@@ -299,7 +307,7 @@ export async function POST(request: NextRequest) {
               (t) => t.execution_hash === triggerTrade?.executionHash
             );
 
-            await supabase.from('pattern_detections').insert({
+            const { error: patternError } = await supabase.from('pattern_detections').insert({
               user_id: user.id,
               session_id: sessionRecord.id,
               pattern_type: pattern.patternType,
@@ -311,6 +319,7 @@ export async function POST(request: NextRequest) {
               description: pattern.description,
               detection_data: pattern.detectionData,
             });
+            if (patternError) console.error('Failed to insert pattern:', patternError);
           }
         }
       }
