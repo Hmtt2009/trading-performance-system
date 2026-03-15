@@ -331,14 +331,14 @@ export function parseIBKRExecutions(
       continue;
     }
 
-    const quantity = Math.abs(parseFloat(row[cols.quantity!] || '0'));
-    if (!quantity || isNaN(quantity)) {
+    const quantity = Math.abs(parseFloat(row[cols.quantity!] || ''));
+    if (isNaN(quantity) || quantity <= 0) {
       errors.push({ row: rowNum, message: 'Invalid quantity', rawData: JSON.stringify(row) });
       continue;
     }
 
-    const price = parseFloat(row[cols.price!] || '0');
-    if (!price || isNaN(price)) {
+    const price = parseFloat(row[cols.price!] || '');
+    if (isNaN(price)) {
       errors.push({ row: rowNum, message: 'Invalid price', rawData: JSON.stringify(row) });
       continue;
     }
