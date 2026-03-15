@@ -6,12 +6,15 @@ import { analyzeSession } from '@/lib/analysis/session';
 import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
+  let uploadRecordId: string | null = null;
+  let supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>> | null = null;
+
   try {
     const user = await getAuthUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const supabase = await (await import('@/lib/supabase/server')).createClient();
+    supabase = await (await import('@/lib/supabase/server')).createClient();
 
     // Get form data
     const formData = await request.formData();
@@ -57,6 +60,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    uploadRecordId = uploadRecord.id;
 
     // Get existing execution hashes for deduplication
     const { data: existingTrades } = await supabase
@@ -115,6 +120,7 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
       if (!newAccount) {
+        await supabase.from('file_uploads').update({ status: 'failed', error_message: 'Failed to create broker account' }).eq('id', uploadRecordId);
         return NextResponse.json({ error: 'Failed to create broker account' }, { status: 500 });
       }
       brokerAccountId = newAccount.id;
@@ -348,6 +354,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
+    if (supabase && uploadRecordId) {
+      try {
+        await supabase.from('file_uploads').update({ status: 'failed', error_message: 'Internal server error' }).eq('id', uploadRecordId);
+      } catch { /* best-effort cleanup */ }
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
