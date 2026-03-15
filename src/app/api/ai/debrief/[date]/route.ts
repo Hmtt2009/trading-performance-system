@@ -21,6 +21,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
     }
+
+    // Rate limiting: if a debrief was generated for this user+date within the last 10 minutes, return it
+    const RATE_LIMIT_MINUTES = 10;
+    const { data: existingDebrief } = await supabase
+      .from('ai_debriefs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('period_start', date)
+      .eq('debrief_type', 'daily')
+      .single();
+
+    if (existingDebrief?.created_at) {
+      const createdAt = new Date(existingDebrief.created_at).getTime();
+      const now = Date.now();
+      const minutesSinceCreation = (now - createdAt) / (1000 * 60);
+      if (minutesSinceCreation < RATE_LIMIT_MINUTES) {
+        return NextResponse.json({
+          debrief: existingDebrief,
+          cached: true,
+          retry_after_seconds: Math.ceil((RATE_LIMIT_MINUTES - minutesSinceCreation) * 60),
+        });
+      }
+    }
+
     const nextDate = new Date(date); nextDate.setDate(nextDate.getDate() + 1);
     const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).gte('entry_time', date).lt('entry_time', nextDate.toISOString().split('T')[0]).order('entry_time', { ascending: true });
     if (!trades || trades.length === 0) return NextResponse.json({ error: 'No trades found for this date' }, { status: 404 });
