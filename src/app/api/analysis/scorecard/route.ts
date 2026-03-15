@@ -81,10 +81,12 @@ export async function GET(request: NextRequest) {
       if (!byDow[d]) byDow[d] = emptySegment();
       addTrade(byDow[d], pnl, isWin);
 
-      // By Hold Time
-      const hold = t.hold_time_minutes || 0;
-      const bk = hold <= 5 ? '0-5min' : hold <= 15 ? '5-15min' : hold <= 60 ? '15-60min' : hold <= 240 ? '1-4hr' : '4hr+';
-      addTrade(byHoldTime[bk], pnl, isWin);
+      // By Hold Time (skip trades with null/undefined hold time)
+      if (t.hold_time_minutes != null) {
+        const hold = t.hold_time_minutes;
+        const bk = hold <= 5 ? '0-5min' : hold <= 15 ? '5-15min' : hold <= 60 ? '15-60min' : hold <= 240 ? '1-4hr' : '4hr+';
+        addTrade(byHoldTime[bk], pnl, isWin);
+      }
 
       // By Symbol
       if (!bySymbol[t.symbol]) bySymbol[t.symbol] = emptySegment();
