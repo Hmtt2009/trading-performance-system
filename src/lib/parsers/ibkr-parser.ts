@@ -84,17 +84,22 @@ function generateExecutionHash(exec: RawExecution): string {
  * IBKR files may have header/metadata rows before the actual trade data.
  */
 function findTradeDataStart(lines: string[]): { startIndex: number; format: string } | null {
+  // Pass 1: Look for Activity Statement format ("Trades,Header,..." row).
+  // Must be checked first — other sections (e.g. Mark-to-Market) also contain
+  // "symbol", "quantity", "price" keywords and would false-match the Flex Query check.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // Check for Activity Statement format: "Trades","Header","Symbol",...
     if (
       (line.startsWith('"Trades"') || line.startsWith('Trades,')) &&
       line.toLowerCase().includes('header')
     ) {
       return { startIndex: i, format: 'ibkr-activity-statement' };
     }
-    // Check if this line contains trade-related headers (Flex Query direct export)
-    const lower = line.toLowerCase();
+  }
+
+  // Pass 2: Fall back to Flex Query direct export (simple CSV with trade headers)
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase();
     if (
       (lower.includes('symbol') || lower.includes('underlying')) &&
       (lower.includes('quantity') || lower.includes('qty')) &&
@@ -103,6 +108,7 @@ function findTradeDataStart(lines: string[]): { startIndex: number; format: stri
       return { startIndex: i, format: 'ibkr-flex-query' };
     }
   }
+
   return null;
 }
 
