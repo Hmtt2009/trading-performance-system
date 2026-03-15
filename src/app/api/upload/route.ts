@@ -139,14 +139,8 @@ export async function POST(request: NextRequest) {
     let duplicatesSkipped = 0;
 
     for (const trade of parseResult.trades) {
-      // Check for duplicate trade hash
-      const { data: existing } = await supabase
-        .from('trades')
-        .select('id')
-        .eq('execution_hash', trade.executionHash)
-        .single();
-
-      if (existing) {
+      // Check for duplicate trade hash using in-memory Set (already fetched upfront)
+      if (trade.executionHash && existingHashes.has(trade.executionHash)) {
         duplicatesSkipped++;
         continue;
       }
