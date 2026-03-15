@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       cum += Number(sess.net_pnl); cumW += Number(sess.net_pnl) + Number(sess.behavior_cost);
       return { date: sess.session_date, actual: Math.round(cum * 100) / 100, simulated: Math.round(cumW * 100) / 100 };
     });
-    const byPatternArray = Object.entries(byPattern).map(([patternType, val]) => ({ patternType, instances: val.count, totalImpact: val.totalImpact }));
+    const byPatternArray = Object.entries(byPattern).map(([patternType, val]) => ({ patternType, instances: val.count, totalImpact: Math.round(val.totalImpact * 100) / 100 }));
     return NextResponse.json({ totalBehaviorCost: Math.round(totalBehaviorCost*100)/100, actualPnl: Math.round(totalNetPnl*100)/100, simulatedPnl: Math.round((totalNetPnl+totalBehaviorCost)*100)/100, byPattern: byPatternArray, equityCurveComparison, period });
   } catch (err) { console.error('Cost error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }
