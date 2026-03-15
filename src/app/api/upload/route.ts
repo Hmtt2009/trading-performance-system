@@ -140,12 +140,6 @@ export async function POST(request: NextRequest) {
     let failedInserts = 0;
 
     for (const trade of parseResult.trades) {
-      // Check for duplicate trade hash using in-memory Set (already fetched upfront)
-      if (trade.executionHash && existingHashes.has(trade.executionHash)) {
-        duplicatesSkipped++;
-        continue;
-      }
-
       const { data: insertedTrade, error: tradeError } = await supabase
         .from('trades')
         .insert({
