@@ -82,7 +82,7 @@ function detectOvertrading(
       confidence: 'high',
       severity: excessCount > baseline.avgTradesPerDay ? 'severe' : 'moderate',
       triggerTradeIndex: triggerIndex,
-      involvedTradeIndices: allIndices,
+      involvedTradeIndices: allIndices.slice(-excessCount),
       dollarImpact,
       description,
       detectionData: {
