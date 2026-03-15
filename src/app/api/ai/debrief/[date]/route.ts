@@ -7,6 +7,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const supabase = await (await import('@/lib/supabase/server')).createClient();
     const { date } = await params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
     const { data: debrief } = await supabase.from('ai_debriefs').select('*').eq('user_id', user.id).eq('period_start', date).eq('debrief_type', 'daily').single();
     return NextResponse.json({ debrief: debrief || null });
   } catch (err) { console.error('Debrief GET error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
