@@ -222,7 +222,9 @@ export function TradeList() {
                         {formatHoldTime(trade.hold_time_minutes)}
                       </td>
                       <td className="px-4 py-2.5 text-right text-muted font-mono">
-                        ${trade.position_value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        {trade.position_value != null
+                          ? `$${trade.position_value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                          : '--'}
                       </td>
                     </tr>
                   );
