@@ -200,16 +200,14 @@ export function parseIBKRExecutions(
     // Activity Statement: strip section prefix columns
     tradeLines = preprocessActivityStatement(allLines, tradeSection.startIndex);
   } else {
-    // Flex Query: find end of trades section
-    let endIndex = allLines.length;
+    // Flex Query: collect all non-empty lines from the trades section
+    const flexLines: string[] = [allLines[tradeSection.startIndex]];
     for (let i = tradeSection.startIndex + 1; i < allLines.length; i++) {
       const line = allLines[i].trim();
-      if (line === '') {
-        endIndex = i;
-        break;
-      }
+      if (line === '') continue; // skip blank lines instead of terminating
+      flexLines.push(allLines[i]);
     }
-    tradeLines = allLines.slice(tradeSection.startIndex, endIndex).join('\n');
+    tradeLines = flexLines.join('\n');
   }
 
   // Parse CSV
