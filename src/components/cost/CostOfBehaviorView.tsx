@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -54,27 +54,29 @@ export function CostOfBehaviorView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCost = useCallback(async (p: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/analysis/cost?period=${p}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to load cost data');
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load cost data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchCost(period);
-  }, [period, fetchCost]);
+    const controller = new AbortController();
+    const fetchCost = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/analysis/cost?period=${period}`, { signal: controller.signal });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to load cost data');
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setError(e instanceof Error ? e.message : 'Failed to load cost data');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    fetchCost();
+    return () => controller.abort();
+  }, [period]);
 
   if (loading) {
     return (
