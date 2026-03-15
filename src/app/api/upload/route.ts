@@ -107,11 +107,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create broker account
+    const detectedBroker = parseResult.metadata.brokerFormat;
     const { data: brokerAccount } = await supabase
       .from('broker_accounts')
       .select()
       .eq('user_id', user.id)
-      .eq('broker_name', 'ibkr')
+      .eq('broker_name', detectedBroker)
       .single();
 
     let brokerAccountId: string;
@@ -122,8 +123,8 @@ export async function POST(request: NextRequest) {
         .from('broker_accounts')
         .insert({
           user_id: user.id,
-          broker_name: 'ibkr',
-          account_label: 'IBKR Account',
+          broker_name: detectedBroker,
+          account_label: `${detectedBroker.toUpperCase()} Account`,
         })
         .select()
         .single();
