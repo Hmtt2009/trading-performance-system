@@ -10,42 +10,44 @@ type BrokerType = 'ibkr' | 'schwab' | 'tdameritrade' | 'webull' | 'unknown';
  * Auto-detect broker from CSV content by inspecting header rows.
  */
 export function detectBroker(csvContent: string): BrokerType {
-  // Check the first 10 lines for broker-specific signatures
-  const lines = csvContent.split(/\r?\n/).slice(0, 50);
-  const header = lines.join('\n');
-
-  // IBKR: rows contain "Trades,Data,Order" or Activity Statement / Flex Query patterns
-  if (
-    header.includes('Trades,Data,Order') ||
-    header.includes('"Trades","Data"') ||
-    header.includes('"Trades","Header"')
-  ) {
-    return 'ibkr';
-  }
-
-  // Also check for IBKR Flex Query format (has Symbol + Quantity + Price headers)
-  const headerUpper = header.toUpperCase();
-  if (
-    (headerUpper.includes('ASSETCATEGORY') || headerUpper.includes('ASSET CATEGORY')) &&
-    headerUpper.includes('SYMBOL') &&
-    (headerUpper.includes('QUANTITY') || headerUpper.includes('QTY'))
-  ) {
-    return 'ibkr';
-  }
+  const allLines = csvContent.split(/\r?\n/);
+  // Scan first 50 lines for non-IBKR brokers and Flex Query format
+  const head = allLines.slice(0, 50).join('\n');
+  const headUpper = head.toUpperCase();
 
   // Schwab: header contains "Fees & Comm"
-  if (header.includes('Fees & Comm') || header.includes('Fees &amp; Comm')) {
+  if (head.includes('Fees & Comm') || head.includes('Fees &amp; Comm')) {
     return 'schwab';
   }
 
   // TD Ameritrade: header contains "TRANSACTION ID"
-  if (headerUpper.includes('TRANSACTION ID')) {
+  if (headUpper.includes('TRANSACTION ID')) {
     return 'tdameritrade';
   }
 
   // Webull: header contains "Trade Time" and "Filled Qty"
-  if (header.includes('Trade Time') && header.includes('Filled Qty')) {
+  if (head.includes('Trade Time') && head.includes('Filled Qty')) {
     return 'webull';
+  }
+
+  // IBKR Activity Statement: scan ALL lines for "Trades" section header,
+  // since Activity Statements have many sections before Trades (often 200+ lines)
+  for (const line of allLines) {
+    if (
+      (line.startsWith('"Trades"') || line.startsWith('Trades,')) &&
+      line.toLowerCase().includes('header')
+    ) {
+      return 'ibkr';
+    }
+  }
+
+  // IBKR Flex Query: check first 50 lines for trade-related headers
+  if (
+    (headUpper.includes('ASSETCATEGORY') || headUpper.includes('ASSET CATEGORY')) &&
+    headUpper.includes('SYMBOL') &&
+    (headUpper.includes('QUANTITY') || headUpper.includes('QTY'))
+  ) {
+    return 'ibkr';
   }
 
   return 'unknown';
