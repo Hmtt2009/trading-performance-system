@@ -220,6 +220,7 @@ export async function POST(request: NextRequest) {
         trades_parsed: insertedTrades.length,
         duplicates_skipped: duplicatesSkipped + parseResult.duplicateHashes.length,
         errors_count: totalErrors,
+        error_message: uploadStatus === 'failed' ? `All ${failedInserts} trade inserts failed` : null,
       })
       .eq('id', uploadRecord.id);
 
