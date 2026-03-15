@@ -7,6 +7,7 @@ interface UploadResult {
   uploadId: string;
   tradesImported: number;
   duplicatesSkipped: number;
+  failedInserts: number;
   errors: { row: number; message: string }[];
   metadata: {
     brokerFormat: string;
@@ -150,13 +151,13 @@ export function FileUpload() {
       {/* Success / Results display */}
       {result && (
         <div className="mt-4 space-y-3">
-          <div className="p-4 rounded bg-green-bg border border-green/20">
-            <p className="text-green font-mono font-bold text-sm">
-              Upload Complete
+          <div className={`p-4 rounded border ${result.tradesImported === 0 && result.failedInserts > 0 ? 'bg-red-bg border-red/20' : 'bg-green-bg border-green/20'}`}>
+            <p className={`font-mono font-bold text-sm ${result.tradesImported === 0 && result.failedInserts > 0 ? 'text-red' : 'text-green'}`}>
+              {result.tradesImported === 0 && result.failedInserts > 0 ? 'Upload Failed' : 'Upload Complete'}
             </p>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-2xl font-mono font-bold text-green">{result.tradesImported}</p>
+                <p className={`text-2xl font-mono font-bold ${result.tradesImported > 0 ? 'text-green' : 'text-muted'}`}>{result.tradesImported}</p>
                 <p className="text-[10px] text-muted font-mono">Imported</p>
               </div>
               <div>
@@ -164,16 +165,21 @@ export function FileUpload() {
                 <p className="text-[10px] text-muted font-mono">Duplicates</p>
               </div>
               <div>
-                <p className="text-2xl font-mono font-bold text-muted">{result.errors.length}</p>
-                <p className="text-[10px] text-muted font-mono">Errors</p>
+                <p className={`text-2xl font-mono font-bold ${result.failedInserts > 0 ? 'text-red' : 'text-muted'}`}>{result.failedInserts || 0}</p>
+                <p className="text-[10px] text-muted font-mono">Failed</p>
               </div>
               <div>
-                <p className="text-2xl font-mono font-bold text-muted">{result.metadata.optionsSkipped}</p>
-                <p className="text-[10px] text-muted font-mono">Opts Skipped</p>
+                <p className="text-2xl font-mono font-bold text-muted">{result.errors.length}</p>
+                <p className="text-[10px] text-muted font-mono">Errors</p>
               </div>
             </div>
           </div>
 
+          {result.failedInserts > 0 && (
+            <div className="p-3 rounded bg-red-bg border border-red/20 text-red text-xs font-mono">
+              {result.failedInserts} trade{result.failedInserts > 1 ? 's' : ''} failed to insert. These trades were not imported and may need to be re-uploaded.
+            </div>
+          )}
           {result.warning && (
             <div className="p-3 rounded bg-amber-bg border border-amber/20 text-amber text-xs font-mono">{result.warning}</div>
           )}

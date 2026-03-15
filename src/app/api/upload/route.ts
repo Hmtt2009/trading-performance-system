@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
     // Insert trades
     const insertedTrades: { id: string; trade: ParsedTrade }[] = [];
     let duplicatesSkipped = 0;
+    let failedInserts = 0;
 
     for (const trade of parseResult.trades) {
       // Check for duplicate trade hash
@@ -184,6 +185,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
         console.error('Failed to insert trade:', tradeError);
+        failedInserts++;
         continue;
       }
 
@@ -208,14 +210,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Update upload record
+    const totalErrors = parseResult.errors.length + failedInserts;
+    const uploadStatus = insertedTrades.length === 0 && failedInserts > 0 ? 'failed' : 'completed';
     await supabase
       .from('file_uploads')
       .update({
-        status: 'completed',
+        status: uploadStatus,
         broker_format: parseResult.metadata.brokerFormat,
         trades_parsed: insertedTrades.length,
         duplicates_skipped: duplicatesSkipped + parseResult.duplicateHashes.length,
-        errors_count: parseResult.errors.length,
+        errors_count: totalErrors,
+        error_message: uploadStatus === 'failed'
+          ? `All ${failedInserts} trade inserts failed`
+          : failedInserts > 0
+            ? `${failedInserts} of ${insertedTrades.length + failedInserts} trade inserts failed`
+            : null,
       })
       .eq('id', uploadRecord.id);
 
@@ -351,6 +360,7 @@ export async function POST(request: NextRequest) {
       uploadId: uploadRecord.id,
       tradesImported: insertedTrades.length,
       duplicatesSkipped: duplicatesSkipped + parseResult.duplicateHashes.length,
+      failedInserts,
       errors: parseResult.errors,
       metadata: parseResult.metadata,
       warning:
