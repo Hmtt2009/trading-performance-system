@@ -387,15 +387,16 @@ export async function POST(request: NextRequest) {
                 }
               }
 
+              // Only mark as verified if we actually computed a dollar impact
+              const verified = actualLeftOnTable != null;
               const updates: Record<string, unknown> = {
                 detection_data: {
                   ...pattern.detectionData,
                   postExitData,
-                  postExitEnriched: true,
+                  postExitEnriched: verified,
                 },
               };
 
-              // Only override dollar_impact if deduplication didn't zero it
               if (actualLeftOnTable != null && pattern.dollarImpact !== 0) {
                 const verifiedImpact = Math.round(actualLeftOnTable * 100) / 100;
                 behaviorCostDelta += verifiedImpact - Math.abs(pattern.dollarImpact);
