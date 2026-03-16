@@ -4,11 +4,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/auth', '/pricing', '/about'];
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute = PUBLIC_ROUTES.some((r) =>
+    r === '/' ? pathname === '/' : pathname.startsWith(r)
+  );
+  const isApiRoute = pathname.startsWith('/api');
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase is not configured, block access to prevent auth bypass
+  // If Supabase is not configured, allow public routes but block protected ones
   if (!supabaseUrl || !supabaseAnonKey) {
+    if (isPublicRoute || isApiRoute) {
+      return NextResponse.next({ request });
+    }
     return new NextResponse('Service unavailable: authentication not configured', { status: 503 });
   }
 
@@ -35,12 +44,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  const isPublicRoute = PUBLIC_ROUTES.some((r) =>
-    r === '/' ? pathname === '/' : pathname.startsWith(r)
-  );
-  const isApiRoute = pathname.startsWith('/api');
 
   // Don't redirect API routes — they return 401 on their own
   if (!user && !isPublicRoute && !isApiRoute) {
