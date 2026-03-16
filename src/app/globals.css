@@ -58,6 +58,12 @@
   --color-blue: var(--blue);
   --color-accent: var(--blue);
   --color-accent-bg: var(--blue-bg);
+  --color-panel: var(--panel);
+  --color-panel-hover: var(--panel-hover);
+  --color-red-bg: var(--red-bg);
+  --color-green-bg: var(--green-bg);
+  --color-amber-bg: var(--amber-bg);
+  --color-blue-bg: var(--blue-bg);
   --font-sans: var(--font-syne, system-ui, sans-serif);
   --font-mono: var(--font-space-mono, "Courier New", monospace);
   --font-display: var(--font-bebas-neue, Impact, sans-serif);
