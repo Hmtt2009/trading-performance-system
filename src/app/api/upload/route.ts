@@ -368,6 +368,9 @@ export async function POST(request: NextRequest) {
               if (result.status !== 'fulfilled' || !result.value.postExitData) continue;
               const { pattern, trade, postExitData } = result.value;
 
+              // Skip enrichment for deduplication-zeroed patterns
+              if (pattern.dollarImpact === 0) continue;
+
               const triggerDbTrade = allUserTrades.find(
                 (t) => t.execution_hash === trade.executionHash
               );
