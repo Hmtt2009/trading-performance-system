@@ -1,347 +1,449 @@
-# Code Review Report
+# Code Review Report — Round 4
 
-## Date
-2026-03-15 (Round 3)
-
-## Project Name
-Trading Performance System
-
-## Tech Stack
-- Next.js 16 (App Router) + React 19 + TypeScript 5
-- Supabase (PostgreSQL, Auth, RLS, Storage)
-- Tailwind CSS 4
-- Claude API (Sonnet) for AI debriefs
-- yahoo-finance2 for post-exit price tracking
-- Recharts 3.8 for data visualization
-- csv-parse for CSV parsing (IBKR only; other parsers use hand-rolled CSV)
-- Vitest 4.0 for testing (30+ tests)
-- Stripe (billing -- not yet implemented)
+**Date:** 2026-03-17
+**Reviewer:** Claude Code (Automated)
+**Scope:** Full codebase — parsers, analysis engine, API routes, frontend, database schema, middleware
 
 ---
 
-## Executive Summary
+## Summary
 
-- **Overall Quality Score:** 5/10
-- **Total Issues Found:** 55 (deduplicated across all review areas)
-- **Critical:** 6 | **High:** 10 | **Medium:** 22 | **Low:** 17
-
-The core analysis engine (pattern detection, baseline computation) is well-designed with thoughtful, trader-relative thresholds. However, several critical bugs exist: the upload route hardcodes broker to IBKR (breaking multi-broker support), the `tdameritrade` value is missing from the database CHECK constraint, there's a division-by-zero in premature exit detection, and the non-IBKR parsers have incorrect VWAP calculations. The "Cost of Behavior" metric -- the product's core value proposition -- uses `Math.abs(dollarImpact)` which incorrectly inflates costs when flagged trades were profitable. Performance-wise, the upload route performs N+1 queries and loads all user trades into memory on every upload. The frontend lacks request cancellation on filter changes, causing race conditions across multiple components.
+| Severity | Count |
+|----------|-------|
+| Critical | 2     |
+| High     | 12    |
+| Medium   | 16    |
+| Low      | 12    |
 
 ---
 
-## Critical Issues (Must Fix)
+## Critical Issues
 
-### C1. Upload route hardcodes broker to `'ibkr'`
-- **File:** `src/app/api/upload/route.ts:114-116`
-- **Description:** When getting/creating a broker account, the code always uses `broker_name: 'ibkr'` regardless of which broker was detected by the parser. Schwab, TD Ameritrade, and Webull uploads are silently misattributed to an IBKR account.
-- **Fix:** Use `parseResult.metadata.brokerFormat` to determine the correct broker name.
+### C1: Missing Tailwind v4 Theme Tokens — ~52 Utility Classes Silently Fail
 
-### C2. `tdameritrade` missing from database CHECK constraint
-- **File:** `supabase/migrations/00001_initial_schema.sql:55`
-- **Description:** The `broker_accounts.broker_name` CHECK constraint only allows `('ibkr', 'schwab', 'webull')`. TypeScript types include `'tdameritrade'` and the TD Ameritrade parser returns it as `brokerFormat`. Any TD Ameritrade upload will fail with a constraint violation at the database level.
-- **Fix:** Add `'tdameritrade'` to the CHECK constraint.
+**File:** `src/app/globals.css:40-64`
+**Impact:** UI renders with browser defaults (transparent/black) instead of design system colors.
 
-### C3. Division by zero in premature exit detection when `holdTimeMinutes` is 0
-- **File:** `src/lib/analysis/patterns.ts:271-272`
-- **Description:** When `trade.holdTimeMinutes` is 0 (instant fill), `holdRatio = 0 / avg = 0`, then `estimatedFullProfit = netPnl / 0 = Infinity`. The cap on line 276 limits `leftOnTable` to `netPnl * 3`, so every 0-minute winning trade is falsely flagged as a premature exit with inflated dollar impact. This corrupts cost-of-behavior totals.
-- **Fix:** Add `if (trade.holdTimeMinutes <= 0) continue;` before the holdRatio calculation.
+The `@theme inline` block defines `--color-card` but the codebase uses `bg-panel` (33 occurrences), not `bg-card`. Similarly, `bg-red-bg` (13 uses), `bg-green-bg`, `bg-amber-bg`, `bg-blue-bg` are used but only their semantic aliases (`--color-loss-bg`, `--color-profit-bg`) are defined.
 
-### C4. N+1 query pattern in upload route
-- **File:** `src/app/api/upload/route.ts:142-209`
-- **Description:** Each trade is inserted one at a time in a serial loop with a per-trade duplicate-check query (line 144), an insert (line 155), and per-execution inserts (lines 194-208). A file with 500 trades produces 1000+ sequential database round-trips. This makes uploads extremely slow and will timeout on serverless platforms.
-- **Fix:** Batch-insert trades using Supabase's `.insert([...array])`. Remove the per-trade duplicate query (line 144) -- rely on the `existingHashes` set (already loaded at lines 76-84) and the unique constraint catch at line 183.
+**Missing mappings:**
+```css
+--color-panel: var(--panel);
+--color-panel-hover: var(--panel-hover);
+--color-red-bg: var(--red-bg);
+--color-green-bg: var(--green-bg);
+--color-amber-bg: var(--amber-bg);
+--color-blue-bg: var(--blue-bg);
+```
 
-### C5. IBKR parser: blank line terminates Flex Query section prematurely
-- **File:** `src/lib/parsers/ibkr-parser.ts:204-212`
-- **Description:** For Flex Query format, the parser stops at the first empty line. If the CSV has a single blank line between trade rows (common in some exports), all subsequent trades are silently dropped with no warning.
-- **Fix:** Do not use blank lines as section terminators, or warn when data rows appear after a blank line.
+**Fix:** Add these 6 lines to the `@theme inline` block.
 
-### C6. RLS policy on `trade_executions` uses subquery against nullable FK
-- **File:** `supabase/migrations/00001_initial_schema.sql:133, 293-300`
-- **Description:** The `trade_executions` RLS policy relies on a correlated subquery to `trades`. But `trade_id` has no `NOT NULL` constraint. If `trade_id` is ever NULL, the execution becomes permanently invisible to all users including the owner.
-- **Fix:** Add `NOT NULL` to `trade_executions.trade_id`. Consider adding a `user_id` column directly for a simpler RLS policy.
+---
+
+### C2: Protected Pages Have No Client-Side Auth Guard
+
+**Files:** `src/app/dashboard/page.tsx`, `src/app/upload/page.tsx`, `src/app/trades/page.tsx`, `src/app/analysis/page.tsx`
+**Impact:** If middleware is bypassed or misconfigured, all protected pages render without authentication checks.
+
+The middleware (see H3) returns a 503 when env vars are missing, which blocks ALL routes. But the protected pages themselves never verify `user` before fetching data — they rely entirely on middleware and API-level auth. If someone accesses the page with a stale session or during a middleware misconfiguration window, the page renders with empty data or errors rather than redirecting to login.
+
+**Fix:** Add a lightweight auth check at the top of each protected page layout or use a shared `<AuthGuard>` wrapper component.
 
 ---
 
 ## High Priority Issues
 
-### H1. `Math.abs(dollarImpact)` treats profitable flagged trades as costs
-- **File:** `src/lib/analysis/session.ts:21-24, 54`
-- **Description:** `behaviorCost` is computed as `patterns.reduce((s, p) => s + Math.abs(p.dollarImpact), 0)`. For overtrading, `dollarImpact` is the net P&L of excess trades. If those excess trades were profitable, `Math.abs()` still counts them as a "cost." The same issue affects `computeCostOfBehavior`. This is the product's core value proposition and shows misleading numbers.
-- **Fix:** Define a clear sign convention. Only sum negative impacts as costs, or redesign `dollarImpact` to always represent cost as a positive value.
+### H1: Commission Over-Counted for Partially Matched Trades
 
-### H2. `simulatedPnl` calculation is semantically incorrect
-- **File:** `src/lib/analysis/session.ts:63-64`
-- **Description:** `simulatedPnl = actualPnl + totalBehaviorCost`. Since `totalBehaviorCost` is always positive (sum of `Math.abs`), `simulatedPnl` is always better than `actualPnl`. For overtrading where excess trades were profitable, removing them should make P&L *worse*, not better.
-- **Fix:** Each pattern type needs its own sign convention for how `dollarImpact` feeds into simulated P&L.
+**File:** `src/lib/parsers/ibkr-parser.ts:513`
+**Also affects:** `schwab-parser.ts`, `tdameritrade-parser.ts`, `webull-parser.ts`
 
-### H3. VWAP calculation incorrect in Schwab/TDA/Webull parsers
-- **File:** `src/lib/parsers/schwab.ts:288-289`, `tdameritrade.ts:273-274`, `webull.ts:294-295`
-- **Description:** These parsers compute VWAP using total entry/exit quantity even when `matchedQty < entryQty`. The IBKR parser correctly uses `calculateVWAP(entryExecs, matchedQty)` for FIFO matching. For scaled positions with partial closes, P&L will be wrong in non-IBKR parsers.
-- **Fix:** Port the IBKR parser's `calculateVWAP` function to the other parsers, or extract into a shared module.
+When a position is partially closed (`matchedQty < entryQty`), the commission calculation sums ALL entry and exit execution commissions:
+```typescript
+const totalComm = [...entryExecs, ...exitExecs].reduce((s, e) => s + e.commission, 0);
+```
+This includes commission from unmatched executions. For example, if a trader enters 100 shares across 2 fills (50 each at $1 commission) but only exits 50 shares, the code sums all 3 execution commissions ($3) instead of pro-rating ($1.50 for matched portion + $1 for exit).
 
-### H4. Custom CSV parser doesn't handle escaped quotes
-- **File:** `src/lib/parsers/schwab.ts:189-206`, `tdameritrade.ts:174-191`, `webull.ts:195-212`
-- **Description:** `parseCSVLine` toggles `inQuotes` on every `"`. Per RFC 4180, `""` inside a quoted field is a literal quote. If a field contains an odd number of escaped quotes, parsing breaks for the rest of the line.
-- **Fix:** Handle `""` as escaped literal quote, or use the `csv-parse` library already in the project's dependencies.
+**Fix:** Pro-rate commission based on `matchedQty / totalQty` for each side.
 
-### H5. Unmatched excess exit quantity silently lost (non-IBKR parsers)
-- **File:** `src/lib/parsers/schwab.ts:245-320`, `tdameritrade.ts:230-305`, `webull.ts:251-326`
-- **Description:** When `exitQty > entryQty`, excess exit executions are silently discarded. When `entryQty > exitQty`, the IBKR parser creates an open position for the remainder; the other parsers don't.
-- **Fix:** Port the IBKR parser's unmatched quantity handling to all parsers.
+---
 
-### H6. Race conditions in data-fetching components
-- **File:** `src/components/trades/TradeList.tsx:57-86`, `DashboardView.tsx:60-80`, `ScorecardView.tsx:209-226`, `CostOfBehaviorView.tsx:57-77`
-- **Description:** Rapidly switching period selectors or typing in filters fires concurrent fetches with no cancellation. A response from an earlier request can arrive after a later one, overwriting correct data with stale data.
-- **Fix:** Use `AbortController` in the `useEffect` cleanup to cancel inflight requests.
+### H2: yahoo-finance2 Constructor May Be Incorrect
 
-### H7. `quantity` column uses INTEGER -- cannot represent fractional shares
-- **File:** `supabase/migrations/00001_initial_schema.sql:104, 137`
-- **Description:** Both `trades.quantity` and `trade_executions.quantity` use `INTEGER`, but some brokers support fractional shares. TypeScript types use `number` (float). Fractional quantities are silently truncated on insert.
-- **Fix:** Change to `DECIMAL(12,4)`.
+**File:** `src/lib/market/postExitPrice.ts:14-15`
 
-### H8. All user trades loaded into memory after every upload
-- **File:** `src/app/api/upload/route.ts:226-230`
-- **Description:** `SELECT * FROM trades WHERE user_id = ?` loads the entire trade history (all columns) into memory after every upload for baseline recomputation. Combined with session/pattern processing, this can exhaust serverless memory.
-- **Fix:** Select only needed columns, or move baseline recomputation to a background job.
+```typescript
+const YahooFinance = (await import('yahoo-finance2')).default;
+return new YahooFinance();
+```
 
-### H9. No rate limiting on AI debrief endpoint (on main branch)
-- **File:** `src/app/api/ai/debrief/[date]/route.ts:15`
-- **Description:** The POST endpoint calls the Anthropic Claude API with no rate limiting. A user can spam this endpoint to generate unlimited AI calls. (Note: a fix exists on `fix/debrief-rate-limiting` branch but is not yet merged.)
-- **Fix:** Merge the rate-limiting branch, or add per-user rate limiting.
+In yahoo-finance2 v2, the default export is already an instantiated object (singleton). Calling `new YahooFinance()` on it may throw or create an improperly initialized instance. The v3 API uses `new YahooFinance()` but has a different import pattern.
 
-### H10. Upload route is a long-running synchronous request
-- **File:** `src/app/api/upload/route.ts` (entire file)
-- **Description:** The handler performs file parsing, trade insertion, baseline computation, session analysis, pattern detection, and Yahoo Finance API calls in a single request. On Vercel, default timeout is 10 seconds. This will routinely exceed that.
-- **Fix:** Return after parsing + insertion, then process analysis asynchronously.
+**Fix:** Verify which version is installed (`package.json`) and use the correct pattern. For v2: use the default export directly without `new`. For v3: use the documented constructor.
+
+---
+
+### H3: Middleware Blocks ALL Routes When Env Vars Missing
+
+**File:** `src/middleware.ts:10-12`
+
+```typescript
+if (!supabaseUrl || !supabaseAnonKey) {
+  return new NextResponse('Service unavailable...', { status: 503 });
+}
+```
+
+When `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set (common in fresh local dev, CI, or deployment misconfiguration), every route — including the marketing homepage `/`, `/pricing`, `/about` — returns 503. This makes the app completely inaccessible.
+
+**Fix:** Move the env check to AFTER the public route check, or only apply it to routes that actually need authentication.
+
+---
+
+### H4: `createClient()` Throws Uncaught When Env Vars Missing
+
+**Files:** `src/app/login/page.tsx:27`, `src/app/signup/page.tsx`
+
+`createClient()` from `@supabase/ssr` throws if URL/key are missing. In the login page, this is called inside event handlers (`handleEmailLogin`, `handleGoogleLogin`) without a try/catch. If the Supabase client can't initialize, the user sees an unhandled exception rather than a helpful error message.
+
+**Fix:** Wrap `createClient()` in a try/catch or validate env vars before calling.
+
+---
+
+### H5: Unsanitized Tab Query Parameter
+
+**File:** `src/app/analysis/page.tsx:141`
+
+```typescript
+const activeTab = (searchParams.get('tab') as TabKey) || 'patterns';
+```
+
+The `tab` param is cast to `TabKey` without validation. While this doesn't cause XSS (the value is compared against known keys for rendering), an invalid value silently results in no tab content being rendered — the user sees an empty page with no error.
+
+**Fix:** Validate against `TABS.map(t => t.key)` and fall back to `'patterns'` for invalid values:
+```typescript
+const rawTab = searchParams.get('tab');
+const activeTab = TABS.some(t => t.key === rawTab) ? (rawTab as TabKey) : 'patterns';
+```
+
+---
+
+### H6: No AbortController in DebriefView and SessionTimeline
+
+**Files:** `src/components/debrief/DebriefView.tsx:44-46`, `src/components/timeline/SessionTimeline.tsx:74-76`
+
+Both components fetch data in `useEffect` when the `date` prop changes. If the user rapidly changes dates, multiple fetches fire concurrently and the last one to resolve wins — which may not be the most recent date. This causes stale data to appear for the wrong date.
+
+**Fix:** Add `AbortController` to the `useEffect` and abort previous requests on cleanup:
+```typescript
+useEffect(() => {
+  const controller = new AbortController();
+  fetchTimeline(controller.signal);
+  return () => controller.abort();
+}, [date]);
+```
+
+---
+
+### H7-H9: Supabase 1000-Row Default Limit Causes Silent Data Truncation
+
+**Files:**
+- `src/app/api/upload/route.ts:247-251` — fetches ALL user trades for baseline computation
+- `src/app/api/analysis/weekly/route.ts:38-42` — fetches ALL sessions
+- `src/app/api/analysis/scorecard/route.ts:38` — fetches ALL trades for period
+
+Supabase PostgREST returns a maximum of 1000 rows by default. For active traders with >1000 trades, baseline computation silently uses only the first 1000, producing inaccurate averages and thresholds. The weekly and scorecard routes similarly truncate.
+
+**Fix:** Add `.limit(10000)` or implement pagination. For the upload route's baseline computation, paginate with `.range(from, to)` in a loop until all rows are fetched.
+
+---
+
+### H10: Duplicate Migration Number 00004
+
+**Files:**
+- `supabase/migrations/00004_allow_tdameritrade_broker.sql`
+- `supabase/migrations/00004_trade_executions_not_null.sql`
+
+Two migration files share the same `00004` prefix. Supabase CLI processes migrations in lexicographic order. One migration may silently fail or both may run in an unpredictable order, leading to schema inconsistency.
+
+**Fix:** Rename `00004_trade_executions_not_null.sql` to `00006_trade_executions_not_null.sql` and `00005_quantity_to_decimal.sql` to `00007_quantity_to_decimal.sql`.
+
+---
+
+### H11: AiDebrief TypeScript Type Missing `updated_at` Field
+
+**File:** `src/types/database.ts:150-163`
+
+Migration `00003_add_debriefs_updated_at.sql` adds an `updated_at` column with a trigger, but the TypeScript `AiDebrief` interface doesn't include it. Code that reads debriefs and accesses `updated_at` will get a TypeScript error, and code that inserts/updates may include stale type information.
+
+**Fix:** Add `updated_at: string;` to the `AiDebrief` interface.
+
+---
+
+### H12: `quantity` Not Converted with `Number()` After DECIMAL Migration
+
+**File:** `src/app/api/upload/route.ts:262`
+
+Migration `00005_quantity_to_decimal.sql` changes the `quantity` column type from `INTEGER` to `DECIMAL`. Supabase's PostgREST client returns `DECIMAL` columns as **strings**. The upload route converts `entry_price`, `exit_price`, `total_commission`, `position_value` with `Number()` but assigns `quantity` directly:
+
+```typescript
+quantity: t.quantity,  // String from DECIMAL column!
+```
+
+This causes type mismatches downstream — `positionValue` calculations, pattern detection thresholds, and commission pro-rating all expect numeric `quantity`.
+
+**Fix:** Change to `quantity: Number(t.quantity)`.
 
 ---
 
 ## Medium Priority Issues
 
-### M1. Timezone inconsistency across all parsers
-- **File:** All parser files
-- **Description:** Dates are parsed as local time in some cases and UTC in others. `toISOString()` used for date grouping produces UTC strings. A trade at 22:00 EST is grouped into the next UTC day. Affects session analysis, hour-of-day metrics, and day-of-week performance.
-- **Fix:** Normalize all times to a consistent timezone (e.g., America/New_York).
+### M1: Population vs Sample Standard Deviation
 
-### M2. `getHours()` uses local time vs `toISOString()` uses UTC for grouping
-- **File:** `src/lib/analysis/baseline.ts:135`, `scorecard.ts:55`
-- **Description:** `getHours()` returns server local hour. `toISOString().split('T')[0]` returns UTC date. Hour-of-day and date groupings are inconsistent.
-- **Fix:** Use consistent timezone handling throughout.
+**File:** `src/lib/analysis/baseline.ts:209-213`
 
-### M3. Population standard deviation used instead of sample standard deviation
-- **File:** `src/lib/analysis/baseline.ts:209-214`
-- **Description:** The `stddev` function divides by N (population) instead of N-1 (sample). With small datasets, this underestimates variance and makes overtrading detection too sensitive.
-- **Fix:** Use Bessel's correction: `Math.sqrt(sum / (N - 1))`.
+The `stddev` function divides by `n` (population stddev) instead of `n-1` (sample stddev). For a trader's baseline computed from a sample of their trades, sample stddev is more appropriate. This causes the overtrading threshold to be slightly too tight, increasing false positives.
 
-### M4. `trades.indexOf(t)` is O(n) per lookup in overtrading detection
-- **File:** `src/lib/analysis/patterns.ts:56`
-- **Description:** For each day flagged as overtrading, `indexOf` performs a linear scan. Across all flagged days, this approaches O(n^2).
-- **Fix:** Build a `Map<ParsedTrade, number>` lookup for O(1) resolution.
+---
 
-### M5. Hash collision: identical fills at same timestamp treated as duplicates
-- **File:** All parsers (e.g., `ibkr-parser.ts:78`, `schwab.ts:209`)
-- **Description:** Hash is `SHA256(symbol|dateTime|side|quantity|price)`. Two identical partial fills at the same second produce the same hash, silently dropping a legitimate execution.
-- **Fix:** Include a row index or running counter in the hash.
+### M2: Row Number Inaccurate for Activity Statement Parser Errors
 
-### M6. Webull timezone stripping loses information
-- **File:** `src/lib/parsers/webull.ts:178`
-- **Description:** Strips EST/EDT/PST before parsing, then creates Date in server local time. On a UTC server, EST times are off by 5 hours.
-- **Fix:** Convert timezone abbreviations to UTC offsets before parsing.
+**File:** `src/lib/parsers/ibkr-parser.ts:295`
 
-### M7. Negative hold time not handled
-- **File:** `src/lib/parsers/ibkr-parser.ts:519-521`, `schwab.ts:297`
-- **Description:** `holdTimeMinutes` can be negative if exit timestamp precedes entry timestamp (e.g., short trades with misordered fills). Stored as-is, affecting downstream analysis.
-- **Fix:** Use `Math.abs()` on hold time, or ensure correct entry/exit ordering.
+Error messages report `row` numbers that don't account for section headers and blank lines in Activity Statement format. Reported row numbers don't match the actual CSV file lines, making debugging difficult.
 
-### M8. No test coverage for Schwab, TD Ameritrade, or Webull parsers
-- **File:** `src/__tests__/`
-- **Description:** Three of four broker parsers have zero test coverage (300+ lines each). Bugs like the VWAP issue (H3) go undetected.
-- **Fix:** Add test suites for each broker parser.
+---
 
-### M9. Massive code duplication across broker parsers
-- **File:** `src/lib/parsers/schwab.ts`, `tdameritrade.ts`, `webull.ts`
-- **Description:** `matchExecutionsToTrades`, `groupIntoTrades`, `generateHash`, `parseCSVLine`, and `round` are duplicated nearly identically across all three files. Bug fixes must be applied in 4 places.
-- **Fix:** Extract shared logic into `src/lib/parsers/shared.ts`.
+### M3: Premature Exit Estimation Flawed for Very Short Holds
 
-### M10. `file_path` constructed from unsanitized user-controlled filename
-- **File:** `src/app/api/upload/route.ts:59`
-- **Description:** `file.name` from the client could contain path traversal characters. Currently only stored as metadata, but could be dangerous if later used for storage operations.
-- **Fix:** Sanitize `file.name` by stripping directory separators and special characters.
+**File:** `src/lib/analysis/patterns.ts:290-297`
 
-### M11. Upload page in PUBLIC_ROUTES but API requires auth
-- **File:** `src/middleware.ts:4`
-- **Description:** `/upload` is public so unauthenticated users see the upload UI but API calls fail. Landing page CTA says "No Account Needed" (page.tsx:97).
-- **Fix:** Either implement anonymous upload or remove `/upload` from public routes and update CTA.
+The premature exit detector estimates "full profit" by dividing actual profit by the hold-time ratio: `estimatedFullProfit = netPnl / holdRatio`. For very short holds (e.g., 1 minute when average is 30), this extrapolates wildly (30x the captured profit). The 3x cap helps but still produces inflated estimates.
 
-### M12. Missing `offset` validation in sessions route
-- **File:** `src/app/api/sessions/route.ts:14`
-- **Description:** No lower bound check on `offset`. A negative offset produces unexpected `.range()` behavior.
-- **Fix:** Add `Math.max(0, ...)`.
+---
 
-### M13. Unbounded `IN` clause in weekly route
-- **File:** `src/app/api/analysis/weekly/route.ts:49-54`
-- **Description:** All session IDs collected and passed in a single `.in()` query. Hundreds of sessions could exceed query plan limits.
-- **Fix:** Use a join/subquery instead of materializing IDs client-side.
+### M4: `getHours()`/`getDay()` Use Local Timezone in Baseline
 
-### M14. Dashboard and scorecard routes fetch all data without limits
-- **File:** `src/app/api/analysis/dashboard/route.ts:39-44`, `scorecard/route.ts:38`
-- **Description:** Pattern detections and trade data fetched without limits for broad periods. Could return thousands of rows.
-- **Fix:** Add `.limit()` or aggregate in the database.
+**Files:** `src/lib/analysis/baseline.ts:135`, `src/lib/analysis/scorecard.ts:55`
 
-### M15. Missing composite index for upload route query pattern
-- **File:** `supabase/migrations/00001_initial_schema.sql`
-- **Description:** Upload route queries `pattern_detections` by `(session_id, trigger_trade_id, pattern_type)` but only `session_id` is individually indexed.
-- **Fix:** Add composite index: `CREATE INDEX idx_patterns_session_trigger ON pattern_detections(session_id, trigger_trade_id, pattern_type);`
+The baseline computation uses `getHours()` and `getDay()` which return local timezone values. On a server in UTC, a trade at 3:30 PM ET would be bucketed as hour 19/20. This causes performance-by-hour and performance-by-day-of-week to be shifted. The scorecard route correctly uses `Intl.DateTimeFormat` with `America/New_York`, but the baseline does not.
 
-### M16. Missing `updated_at` triggers on most tables
-- **File:** `supabase/migrations/00001_initial_schema.sql`
-- **Description:** The `update_updated_at()` trigger only applies to `users`. Tables like `trader_baselines`, `file_uploads`, and `pattern_detections` have no automatic timestamp management.
-- **Fix:** Add `updated_at` columns and triggers to tables where modification tracking matters.
+---
 
-### M17. Accessibility: missing `htmlFor`/`id` on form labels
-- **File:** `src/app/login/page.tsx:86,101`, `signup/page.tsx:125,140,155`, `analysis/page.tsx:107,125`
-- **Description:** Labels lack `htmlFor`, inputs lack `id`. Screen readers cannot associate labels with controls.
-- **Fix:** Add matching `id` and `htmlFor` attributes.
+### M5: IBKR Compact Date Format Parsed Without Timezone
 
-### M18. Accessibility: file input has no accessible label
-- **File:** `src/components/upload/FileUpload.tsx:107`
-- **Description:** Hidden file input has no `aria-label` or associated `<label>`.
-- **Fix:** Add `aria-label="Upload CSV file"`.
+**File:** `src/lib/parsers/ibkr-parser.ts:52`
 
-### M19. `formatCurrency` duplicated across 7+ files
-- **File:** Multiple component files
-- **Description:** Identical utility function copy-pasted in DashboardView, TradeList, ScorecardView, SessionTimeline, CostOfBehaviorView, TickerTape, weekly page.
-- **Fix:** Extract to `src/lib/utils/format.ts`.
+IBKR Activity Statement dates in `YYYYMMDD` format are parsed as local time via `new Date(...)`. This can shift dates by one day depending on the server timezone.
 
-### M20. Error response parsing may throw on non-JSON responses
-- **File:** `DashboardView.tsx:66-67`, `TradeList.tsx:72-73`, `ScorecardView.tsx:215-216`, `CostOfBehaviorView.tsx:63-64`
-- **Description:** When response is not OK, `res.json()` is called to extract error. If server returns HTML (502 proxy error), `json()` throws and original error is lost.
-- **Fix:** Wrap error JSON parsing in its own try-catch.
+---
 
-### M21. Fake progress bar misleads users
-- **File:** `src/components/upload/FileUpload.tsx:52-63`
-- **Description:** Progress values (10%, 30%, 80%, 100%) are hardcoded and don't reflect actual upload progress.
-- **Fix:** Use `XMLHttpRequest` with progress events, or show an indeterminate spinner.
+### M6: Quantity/Price Validation Rejects Zero Using Falsy Check
 
-### M22. Pricing page Pro button uses `alert()`
-- **File:** `src/app/pricing/page.tsx:92`
-- **Description:** `onClick={() => alert('Stripe coming soon')}` is unprofessional placeholder UX.
-- **Fix:** Replace with a toast notification or disable the button with a "Coming Soon" label.
+**Files:** `src/lib/parsers/schwab-parser.ts`, `tdameritrade-parser.ts`, `webull-parser.ts`
+
+Validation like `if (!quantity || !price)` rejects quantity=0 or price=0.00 as invalid. While 0-quantity trades are unusual, 0-price can occur for certain corporate actions. This silently drops valid rows.
+
+---
+
+### M7: Direction Determination Fragile for Multi-Day Imports
+
+**File:** `src/lib/parsers/ibkr-parser.ts:496`
+
+Direction is determined by the side of the first execution: `const isLong = firstExec.side === 'buy'`. If executions from a previous day's short entry are imported alongside today's covering buys, the first execution in the array may be a buy (the cover), misclassifying the trade as long.
+
+---
+
+### M8: N+1 Sequential Inserts in Upload Route
+
+**File:** `src/app/api/upload/route.ts` (trade + execution insert loop)
+
+Trades and executions are inserted one-by-one in a loop. For a file with 200 trades averaging 3 executions each, this produces ~800 sequential database roundtrips. Supabase supports batch inserts.
+
+**Fix:** Collect all trades into an array and use a single `.insert(tradesArray)` call, then batch executions similarly.
+
+---
+
+### M9: Full Trade Data Sent to Claude API for Debriefs
+
+**File:** `src/lib/ai/debrief.ts`
+
+The debrief prompt builder sends complete trade data including execution details. For sessions with many trades, this can exceed token limits or inflate API costs.
+
+---
+
+### M10: `parseInt()` Without Radix or NaN Check
+
+**Files:** Multiple API routes using query params
+
+`parseInt(searchParams.get('offset'))` can return `NaN` if the param is not a valid number. This NaN propagates into Supabase `.range()` calls, producing unexpected results.
+
+---
+
+### M11: Bypassable Rate Limit on Debrief Generation
+
+**File:** `src/app/api/ai/debrief/[date]/route.ts`
+
+Rate limiting checks use an in-memory counter or timestamp that resets on server restart. In serverless deployments (Vercel), each invocation may get a fresh instance, making the rate limit ineffective.
+
+---
+
+### M12: Date Parameters Not Validated in API Routes
+
+**Files:** `src/app/api/ai/debrief/[date]/route.ts`, `src/app/api/analysis/timeline/[date]/route.ts`
+
+The `date` path parameter is used directly in database queries without validating its format. Invalid dates like `../../etc/passwd` or `null` are passed to Supabase, which handles them gracefully but wastes a database roundtrip.
+
+---
+
+### M13: `involved_trade_ids` Always Empty in Pattern Detections
+
+**File:** `src/app/api/upload/route.ts` (pattern insert)
+
+The `involved_trade_ids` field in `pattern_detections` is always inserted as an empty array. The pattern detectors compute `involvedTradeIndices` but these indices are never mapped to actual trade database IDs.
+
+---
+
+### M14: `estimated_cost_usd` Never Populated in Debriefs
+
+**File:** `src/app/api/ai/debrief/[date]/route.ts`
+
+The `estimated_cost_usd` column exists in the schema and TypeScript type but is never computed or stored when creating debriefs.
+
+---
+
+### M15: Missing Content Security Policy and Security Headers
+
+**File:** `next.config.ts` or `middleware.ts`
+
+No CSP, HSTS, X-Frame-Options, or other security headers are configured. This is important for a financial application handling sensitive trading data.
+
+---
+
+### M16: `alert()` Used for Stripe Placeholder
+
+**File:** `src/components/marketing/PricingSection.tsx` (or similar)
+
+Client-side `alert()` is used as a placeholder for Stripe integration. This should be replaced before production.
 
 ---
 
 ## Low Priority Issues
 
-### L1. `amountIdx` declared but never used
-- **File:** `src/lib/parsers/schwab.ts:45`, `tdameritrade.ts:45`
-- **Description:** Dead code.
-- **Fix:** Remove.
+### L1: Hash Missing `accountId` — Cross-Account Collision Risk
 
-### L2. Overtrading: `triggerTradeIndex` could be -1
-- **File:** `src/lib/analysis/patterns.ts:57`
-- **Description:** `trades.indexOf(t)` returns -1 if not found. Downstream code using this index gets `undefined`.
-- **Fix:** Guard against -1 values.
+**File:** `src/lib/parsers/ibkr-parser.ts`
 
-### L3. PostExitPrice uses first bar close, not actual trade exit price
-- **File:** `src/lib/market/postExitPrice.ts:41`
-- **Description:** `exitPrice` in `PostExitData` is the close of the first hourly bar, not the trader's fill price. Variable naming is misleading.
-- **Fix:** Rename to `firstBarClose` or accept actual exit price as a parameter.
-
-### L4. Debrief prompt sends full trade data as untruncated JSON
-- **File:** `src/lib/ai/debrief.ts:76`
-- **Description:** For days with 50+ trades, this consumes significant LLM context and increases API costs.
-- **Fix:** Cap trades sent (e.g., top 20 most impactful).
-
-### L5. Breakeven trades classified as losses
-- **File:** `src/lib/analysis/baseline.ts:43`, `scorecard.ts:38`
-- **Description:** `netPnl! <= 0` includes $0.00 P&L as losses. Inflates loss count.
-- **Fix:** Use `< 0` for losses.
-
-### L6. `crypto-js` is deprecated/unmaintained
-- **File:** `package.json:17`
-- **Description:** Node.js has built-in `crypto` module with SHA256 support.
-- **Fix:** Replace with `import { createHash } from 'crypto'` and remove dependency.
-
-### L7. Hardcoded AI model version
-- **File:** `src/app/api/ai/debrief/[date]/route.ts:39`
-- **Description:** `'claude-sonnet-4-20250514'` is hardcoded.
-- **Fix:** Move to environment variable.
-
-### L8. Dynamic imports used unnecessarily on every request
-- **File:** All API routes (e.g., `trades/route.ts:10`)
-- **Description:** `await (await import('@/lib/supabase/server')).createClient()` on every request. Double-await pattern is convoluted.
-- **Fix:** Use standard static imports.
-
-### L9. Admin client defined but never used
-- **File:** `src/lib/supabase/admin.ts`
-- **Description:** Unused code increases attack surface.
-- **Fix:** Remove if unused.
-
-### L10. `dark` class hardcoded with no toggle
-- **File:** `src/app/layout.tsx:35`
-- **Description:** Dark mode only, no toggle mechanism.
-- **Fix:** Informational -- document as intentional.
-
-### L11. Tab switching uses `router.push()` polluting browser history
-- **File:** `src/app/analysis/page.tsx:142`
-- **Description:** Each tab change creates a history entry. Back button steps through tabs instead of going to previous page.
-- **Fix:** Use `router.replace()`.
-
-### L12. No debounce on symbol filter input
-- **File:** `src/components/trades/TradeList.tsx:124-127`
-- **Description:** Every keystroke triggers an API request.
-- **Fix:** Debounce by 300-500ms.
-
-### L13. Duplicate padding classes on weekly page
-- **File:** `src/app/analysis/weekly/page.tsx:111`
-- **Description:** Both `py-6` and `py-20` specified on the same element.
-- **Fix:** Remove the duplicate.
-
-### L14. Duplicate tagline on pricing page
-- **File:** `src/app/pricing/page.tsx:44, 100-102`
-- **Description:** "Built for beginner and intermediate traders" appears twice.
-- **Fix:** Remove one instance.
-
-### L15. Non-deterministic test data
-- **File:** `src/__tests__/analysis.test.ts:25, 39-40`
-- **Description:** `Math.random()` in test helpers makes tests potentially flaky.
-- **Fix:** Use deterministic test data or a seeded PRNG.
-
-### L16. `vitest.config.ts` uses `__dirname` (CommonJS in ESM context)
-- **File:** `vitest.config.ts:10`
-- **Description:** `__dirname` is CommonJS. Works via Vitest transform but technically incorrect for ESM.
-- **Fix:** Use `import.meta.dirname` or `fileURLToPath`.
-
-### L17. Duplicate navigation components across marketing pages
-- **File:** `src/app/page.tsx:67-82`, `pricing/page.tsx:25-37`, `about/page.tsx:7-19`
-- **Description:** Inline nav bars duplicated across 3 pages.
-- **Fix:** Extract into a shared marketing nav component.
+The execution hash doesn't include `accountId`, so identical trades across different broker accounts could collide and be marked as duplicates.
 
 ---
 
-## Architecture Recommendations
+### L2: Index Remap Fallback to `-1` Could Propagate
 
-### 1. Extract shared parser logic
-The Schwab, TD Ameritrade, and Webull parsers duplicate ~200 lines of identical trade-grouping, CSV parsing, and hashing code. Extract into a shared module (`src/lib/parsers/shared.ts`) to fix bugs once and maintain consistency.
+**File:** `src/lib/analysis/patterns.ts:30`
 
-### 2. Move upload processing to background job
-The upload route does too much synchronously: parse, insert, baseline, sessions, patterns, market data. Split into:
-- **Phase 1 (sync):** Parse CSV, insert trades, return upload summary
-- **Phase 2 (async):** Baseline recomputation, session analysis, pattern detection, post-exit price enrichment
+`originalIndexMap.get(t) ?? -1` returns -1 if a trade isn't found. A -1 index propagated to callers could cause out-of-bounds access.
 
-### 3. Standardize timezone handling
-Adopt a consistent timezone strategy (e.g., all timestamps stored as UTC, all analysis done in America/New_York). Create a timezone utility module used across all parsers and analysis functions.
+---
 
-### 4. Fix Cost of Behavior semantics
-The sign convention for `dollarImpact` needs to be clearly defined per pattern type:
-- **Overtrading:** cost = negative P&L of excess trades (if profitable, not a cost)
-- **Size escalation:** cost = excess loss from oversizing
-- **Rapid reentry:** cost = loss from the revenge trade
-- **Premature exit:** cost = profit left on table (always positive)
+### L3: `formatCurrency` Duplicated Across 7+ Files
 
-### 5. Add request cancellation across frontend
-All data-fetching components should use `AbortController` to cancel stale requests when filters/periods change.
+**Files:** Multiple components
 
-### 6. Batch database operations
-Replace per-trade INSERT loops with bulk inserts. Consider using database functions (RPCs) for complex operations like session analysis.
+The same `formatCurrency` helper is reimplemented in `SessionTimeline.tsx`, `CostOfBehaviorView.tsx`, `Dashboard.tsx`, etc. Extract to a shared utility.
+
+---
+
+### L4: File Input Not Reset After Successful Upload
+
+**File:** `src/components/upload/FileUpload.tsx`
+
+After a successful upload, the file input retains its selection. Re-uploading the same file won't trigger the `onChange` event.
+
+---
+
+### L5: `toNullableNumber` Missing Undefined/Empty-String Guard
+
+**File:** `src/app/api/upload/route.ts`
+
+The `toNullableNumber` helper doesn't handle `undefined` or empty string `""` inputs, which could produce `NaN`.
+
+---
+
+### L6: Duplicate Trigger Function in Migrations
+
+**File:** `supabase/migrations/00003_add_debriefs_updated_at.sql`
+
+The trigger function `update_updated_at_column` may already exist from the initial schema. The migration should use `CREATE OR REPLACE FUNCTION`.
+
+---
+
+### L7: RLS Correlated Subquery Performance
+
+**File:** `supabase/migrations/00001_initial_schema.sql`
+
+Some RLS policies use correlated subqueries (e.g., checking `user_id` through a JOIN to `trades`). For large tables, these can cause significant query overhead.
+
+---
+
+### L8: Admin/Service Client Missing `autoRefreshToken: false`
+
+**File:** `src/lib/supabase/server.ts`
+
+Server-side Supabase clients should disable `autoRefreshToken` and `persistSession` since there's no browser context. This prevents unnecessary refresh attempts.
+
+---
+
+### L9: Foreign Keys Missing ON DELETE Behavior
+
+**File:** `supabase/migrations/00001_initial_schema.sql`
+
+Foreign keys like `trade_executions.trade_id -> trades.id` don't specify `ON DELETE CASCADE` or `ON DELETE SET NULL`. Deleting a trade leaves orphaned executions.
+
+---
+
+### L10: Webull Parser Strips Timezone Info
+
+**File:** `src/lib/parsers/webull-parser.ts`
+
+The Webull parser strips timezone suffixes from date strings before parsing, losing timezone context.
+
+---
+
+### L11: Calendar Date Picker UTC Shift
+
+**Files:** `src/app/analysis/page.tsx` (TimelineTab, DebriefTab)
+
+`new Date().toISOString().split('T')[0]` uses UTC date. After midnight local time but before midnight UTC, this returns tomorrow's date, causing confusing default selections.
+
+---
+
+### L12: PatternCard Dismiss Fails Silently
+
+**File:** `src/components/patterns/PatternCard.tsx:68-69`
+
+The dismiss error handler is `catch { // Silently fail }`. The user gets no feedback if the dismiss API call fails — the button just stops spinning.
+
+---
+
+## Recommendations
+
+### Immediate (before first user)
+1. Fix C1 (Tailwind theme tokens) — 6 lines added to globals.css
+2. Fix H10 (duplicate migration) — file rename
+3. Fix H11 (AiDebrief type) — 1 line
+4. Fix H12 (quantity Number()) — 1 line
+5. Fix H5 (tab validation) — 2 lines
+
+### Before beta launch
+6. Fix H1 (commission pro-rating) — moderate refactor across 4 parsers
+7. Fix H3 (middleware env check) — move check after public route match
+8. Fix H7-H9 (1000-row limit) — add pagination or higher limits
+9. Fix H6 (AbortController) — add cleanup to 2 components
+10. Fix C2 (client auth guard) — add `<AuthGuard>` wrapper
+
+### Before production
+11. Fix H2 (yahoo-finance2 API) — verify and fix constructor usage
+12. Fix H4 (createClient throws) — add try/catch
+13. Address all Medium issues
+14. Add security headers (M15)
+15. Replace alert() placeholders (M16)
