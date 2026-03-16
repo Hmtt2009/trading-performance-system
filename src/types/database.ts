@@ -160,4 +160,5 @@ export interface AiDebrief {
   output_tokens: number | null;
   estimated_cost_usd: number | null;
   created_at: string;
+  updated_at: string;
 }
