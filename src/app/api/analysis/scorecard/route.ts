@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       case 'all': dateFrom = new Date('2000-01-01'); break;
       default: dateFrom = new Date(now.getTime() - 90 * 86400000);
     }
-    const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).eq('is_open', false).gte('entry_time', dateFrom.toISOString()).order('entry_time', { ascending: true });
+    const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).eq('is_open', false).gte('entry_time', dateFrom.toISOString()).order('entry_time', { ascending: true }).limit(10000);
     const allTrades = trades || [];
 
     const byHour: Record<number, RawSegment> = {};

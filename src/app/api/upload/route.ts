@@ -248,7 +248,8 @@ export async function POST(request: NextRequest) {
       .from('trades')
       .select('*')
       .eq('user_id', user.id)
-      .order('entry_time', { ascending: true });
+      .order('entry_time', { ascending: true })
+      .limit(10000);
 
     if (allUserTrades && allUserTrades.length > 0) {
       // Convert DB trades to ParsedTrade format for analysis
