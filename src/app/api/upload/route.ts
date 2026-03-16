@@ -348,46 +348,50 @@ export async function POST(request: NextRequest) {
             const yfClient = prematureExitPatterns.length > 0
               ? await createYahooFinanceClient()
               : null;
-            for (const pattern of prematureExitPatterns) {
+            // Fetch all post-exit data in parallel
+            const enrichmentJobs = prematureExitPatterns.map((pattern) => {
               const trade = dayTrades[pattern.triggerTradeIndex];
-              if (!trade?.exitTime || !trade.exitPrice) continue;
+              if (!trade?.exitTime || !trade.exitPrice) return null;
+              return getPostExitPriceData(trade.symbol, trade.exitTime, yfClient)
+                .then((postExitData) => ({ pattern, trade, postExitData }));
+            }).filter(Boolean);
 
-              const postExitData = await getPostExitPriceData(
-                trade.symbol,
-                trade.exitTime,
-                yfClient
-              );
-              if (!postExitData) continue;
+            const results = await Promise.allSettled(enrichmentJobs as Promise<{
+              pattern: typeof prematureExitPatterns[number];
+              trade: typeof dayTrades[number];
+              postExitData: Awaited<ReturnType<typeof getPostExitPriceData>>;
+            }>[]);
 
-              // Compute actual dollar impact using real price movement
+            // Apply enrichment results to DB
+            for (const result of results) {
+              if (result.status !== 'fulfilled' || !result.value.postExitData) continue;
+              const { pattern, trade, postExitData } = result.value;
+
               const triggerDbTrade = allUserTrades.find(
                 (t) => t.execution_hash === trade.executionHash
               );
               if (!triggerDbTrade) continue;
 
               let actualLeftOnTable: number | null = null;
-              // Use the best available future price (4h > 2h > 1h)
               const futurePrice = postExitData.priceAt4h ?? postExitData.priceAt2h ?? postExitData.priceAt1h;
+              const exitPrice = trade.exitPrice!; // guaranteed non-null by pre-filter
               if (futurePrice != null) {
                 if (trade.direction === 'long') {
-                  actualLeftOnTable = Math.max(0, (futurePrice - trade.exitPrice) * trade.quantity);
+                  actualLeftOnTable = Math.max(0, (futurePrice - exitPrice) * trade.quantity);
                 } else {
-                  actualLeftOnTable = Math.max(0, (trade.exitPrice - futurePrice) * trade.quantity);
+                  actualLeftOnTable = Math.max(0, (exitPrice - futurePrice) * trade.quantity);
                 }
               }
 
-              const updatedDetectionData = {
-                ...pattern.detectionData,
-                postExitData,
-                postExitEnriched: true,
-              };
-
               const updates: Record<string, unknown> = {
-                detection_data: updatedDetectionData,
+                detection_data: {
+                  ...pattern.detectionData,
+                  postExitData,
+                  postExitEnriched: true,
+                },
               };
 
               // Only override dollar_impact if deduplication didn't zero it
-              // (dollarImpact === 0 means another pattern claimed this trade's impact)
               if (actualLeftOnTable != null && pattern.dollarImpact !== 0) {
                 updates.dollar_impact = Math.round(actualLeftOnTable * 100) / 100;
                 const moveDesc = postExitData.direction === 'up' ? 'rose' : postExitData.direction === 'down' ? 'fell' : 'stayed flat';
