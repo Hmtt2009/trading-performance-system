@@ -39,7 +39,8 @@ export async function GET() {
       .from('trading_sessions')
       .select('*')
       .eq('user_id', user.id)
-      .order('session_date', { ascending: true });
+      .order('session_date', { ascending: true })
+      .limit(10000);
 
     if (!sessions || sessions.length === 0) {
       return NextResponse.json({ weeks: [] });
