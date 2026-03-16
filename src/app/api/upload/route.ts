@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
         exitTime: t.exit_time ? new Date(t.exit_time) : null,
         entryPrice: Number(t.entry_price),
         exitPrice: t.exit_price ? Number(t.exit_price) : null,
-        quantity: t.quantity,
+        quantity: Number(t.quantity),
         totalCommission: Number(t.total_commission),
         grossPnl: toNullableNumber(t.gross_pnl),
         netPnl: toNullableNumber(t.net_pnl),
