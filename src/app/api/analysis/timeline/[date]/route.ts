@@ -15,6 +15,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const tradeIds = (trades || []).map((t: { id: string }) => t.id);
     const { data: patterns } = tradeIds.length > 0 ? await supabase.from('pattern_detections').select('*').eq('user_id', user.id).in('trigger_trade_id', tradeIds) : { data: [] };
     const { data: session } = await supabase.from('trading_sessions').select('*').eq('user_id', user.id).eq('session_date', date).single();
-    return NextResponse.json({ trades: trades || [], patterns: patterns || [], session: session || null, date });
+
+    const patternsByTradeId = new Map<string, typeof patterns>();
+    for (const pattern of patterns || []) {
+      const linkedTradeIds = new Set<string>();
+      if (pattern.trigger_trade_id) linkedTradeIds.add(pattern.trigger_trade_id);
+      for (const tradeId of pattern.involved_trade_ids || []) {
+        linkedTradeIds.add(tradeId);
+      }
+
+      for (const tradeId of linkedTradeIds) {
+        const existing = patternsByTradeId.get(tradeId) || [];
+        existing.push(pattern);
+        patternsByTradeId.set(tradeId, existing);
+      }
+    }
+
+    let cumulativePnl = 0;
+    const timeline = (trades || []).map((trade) => {
+      cumulativePnl += Number(trade.net_pnl || 0);
+      const tradePatterns = patternsByTradeId.get(trade.id) || [];
+      return {
+        trade,
+        cumPnl: Math.round(cumulativePnl * 100) / 100,
+        patterns: tradePatterns,
+        hasPattern: tradePatterns.length > 0,
+      };
+    });
+
+    return NextResponse.json({
+      date,
+      session: session || null,
+      timeline,
+      totalTrades: timeline.length,
+    });
   } catch (err) { console.error('Timeline error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }

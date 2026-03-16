@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Trade } from '@/types/database';
 
 interface TradeListData {
@@ -54,36 +54,38 @@ export function TradeList() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [symbolFilter, setSymbolFilter] = useState('');
 
-  const fetchTrades = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '50',
-        sortBy,
-        sortDir,
-      });
-      if (symbolFilter.trim()) {
-        params.set('symbol', symbolFilter.trim());
-      }
-      const res = await fetch(`/api/trades?${params}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to load trades');
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load trades');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, sortBy, sortDir, symbolFilter]);
-
   useEffect(() => {
+    const controller = new AbortController();
+    const fetchTrades = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: '50',
+          sortBy,
+          sortDir,
+        });
+        if (symbolFilter.trim()) {
+          params.set('symbol', symbolFilter.trim());
+        }
+        const res = await fetch(`/api/trades?${params}`, { signal: controller.signal });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to load trades');
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setError(e instanceof Error ? e.message : 'Failed to load trades');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
     fetchTrades();
-  }, [fetchTrades]);
+    return () => controller.abort();
+  }, [page, sortBy, sortDir, symbolFilter]);
 
   const handleSort = (column: SortColumn) => {
     if (sortBy === column) {

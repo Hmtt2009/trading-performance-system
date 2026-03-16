@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface RawSegment {
   trades: number;
@@ -206,24 +206,28 @@ export function ScorecardView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchScorecard = useCallback(async (p: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/analysis/scorecard?period=${p}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to load scorecard');
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchScorecard = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/analysis/scorecard?period=${period}`, { signal: controller.signal });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to load scorecard');
+        }
+        setData(await res.json());
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setError(e instanceof Error ? e.message : 'Failed to load scorecard');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-      setData(await res.json());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load scorecard');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchScorecard(period); }, [period, fetchScorecard]);
+    };
+    fetchScorecard();
+    return () => controller.abort();
+  }, [period]);
 
   if (loading) {
     return (
