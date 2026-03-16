@@ -23,11 +23,11 @@ export function DebriefView({ date }: DebriefViewProps) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDebrief = useCallback(async () => {
+  const fetchDebrief = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ai/debrief/${date}`);
+      const res = await fetch(`/api/ai/debrief/${date}`, { signal });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to load debrief');
@@ -35,6 +35,7 @@ export function DebriefView({ date }: DebriefViewProps) {
       const json = await res.json();
       setDebrief(json.debrief);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'Failed to load debrief');
     } finally {
       setLoading(false);
@@ -42,7 +43,9 @@ export function DebriefView({ date }: DebriefViewProps) {
   }, [date]);
 
   useEffect(() => {
-    fetchDebrief();
+    const controller = new AbortController();
+    fetchDebrief(controller.signal);
+    return () => controller.abort();
   }, [fetchDebrief]);
 
   const generateDebrief = async () => {

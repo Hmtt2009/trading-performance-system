@@ -53,11 +53,11 @@ export function SessionTimeline({ date }: SessionTimelineProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTimeline = useCallback(async () => {
+  const fetchTimeline = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/analysis/timeline/${date}`);
+      const res = await fetch(`/api/analysis/timeline/${date}`, { signal });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to load timeline');
@@ -65,6 +65,7 @@ export function SessionTimeline({ date }: SessionTimelineProps) {
       const json = await res.json();
       setData(json);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'Failed to load timeline');
     } finally {
       setLoading(false);
@@ -72,7 +73,9 @@ export function SessionTimeline({ date }: SessionTimelineProps) {
   }, [date]);
 
   useEffect(() => {
-    fetchTimeline();
+    const controller = new AbortController();
+    fetchTimeline(controller.signal);
+    return () => controller.abort();
   }, [fetchTimeline]);
 
   if (loading) {
