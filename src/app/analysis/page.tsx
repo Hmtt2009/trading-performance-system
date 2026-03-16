@@ -7,6 +7,7 @@ import { ScorecardView } from '@/components/scorecard/ScorecardView';
 import { CostOfBehaviorView } from '@/components/cost/CostOfBehaviorView';
 import { SessionTimeline } from '@/components/timeline/SessionTimeline';
 import { DebriefView } from '@/components/debrief/DebriefView';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const TABS = [
   { key: 'patterns', label: 'Patterns' },
@@ -176,16 +177,18 @@ function AnalysisContent() {
 
 export default function AnalysisPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-green border-t-transparent rounded-full animate-spin" />
-          </div>
-        }
-      >
-        <AnalysisContent />
-      </Suspense>
-    </div>
+    <AuthGuard>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-green border-t-transparent rounded-full animate-spin" />
+            </div>
+          }
+        >
+          <AnalysisContent />
+        </Suspense>
+      </div>
+    </AuthGuard>
   );
 }
