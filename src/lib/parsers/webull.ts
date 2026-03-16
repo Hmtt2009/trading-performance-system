@@ -300,7 +300,12 @@ function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
   // VWAP: only average the first N shares (FIFO) where N = matchedQty
   const vwapEntry = calculateVWAP(entryExecs, matchedQty);
   const vwapExit = calculateVWAP(exitExecs, matchedQty);
-  const totalComm = [...entryExecs, ...exitExecs].reduce((s, e) => s + e.commission, 0);
+  // Pro-rate commission based on matched quantity
+  const entryCommRate = matchedQty / entryQty;
+  const exitCommRate = exitQty > 0 ? matchedQty / exitQty : 1;
+  const entryComm = entryExecs.reduce((s, e) => s + e.commission, 0) * entryCommRate;
+  const exitComm = exitExecs.reduce((s, e) => s + e.commission, 0) * exitCommRate;
+  const totalComm = entryComm + exitComm;
   const grossPnl = isLong
     ? (vwapExit - vwapEntry) * matchedQty
     : (vwapEntry - vwapExit) * matchedQty;
