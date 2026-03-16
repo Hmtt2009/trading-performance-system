@@ -91,7 +91,6 @@ export interface PatternInstance {
   dollarImpact: number;
   description: string;
   detectionData: Record<string, unknown>;
-  postExitData?: PostExitData | null;
 }
 
 export interface SessionAnalysis {

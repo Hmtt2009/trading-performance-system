@@ -101,7 +101,7 @@ export function PatternCard({
 
           {dollarImpact !== null && (() => {
             const postExit = detectionData?.postExitData as PostExitData | undefined;
-            const isVerified = patternType === 'premature_exit' && detectionData?.postExitEnriched === true && postExit;
+            const isVerified = patternType === 'premature_exit' && dollarImpact !== 0 && detectionData?.postExitEnriched === true && postExit;
             return (
               <>
                 <p className="text-lg font-mono font-bold text-amber mb-2">
