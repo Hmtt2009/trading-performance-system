@@ -265,6 +265,7 @@ function detectPrematureExit(
     // Must be a winning trade
     if (trade.netPnl === null || trade.netPnl <= 0) continue;
     if (trade.holdTimeMinutes === null) continue;
+    if (trade.holdTimeMinutes <= 0) continue;
 
     // Must be held significantly less than average winning hold time
     if (trade.holdTimeMinutes >= holdThreshold) continue;
