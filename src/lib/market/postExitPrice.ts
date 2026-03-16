@@ -8,22 +8,31 @@ interface ChartQuote {
 }
 
 /**
+ * Create a reusable YahooFinance instance. Call once and pass to getPostExitPriceData.
+ */
+export async function createYahooFinanceClient(): Promise<unknown> {
+  const YahooFinance = (await import('yahoo-finance2')).default;
+  return new YahooFinance();
+}
+
+/**
  * Fetch post-exit price data for a stock using yahoo-finance2.
  * Returns hourly price snapshots for 4 hours after exit, plus max move info.
  * Returns null silently if data is unavailable.
  */
 export async function getPostExitPriceData(
   symbol: string,
-  exitTime: Date
+  exitTime: Date,
+  yfClient?: unknown
 ): Promise<PostExitData | null> {
   try {
     // yahoo-finance2 only has intraday data for ~730 days
     const daysSinceExit = (Date.now() - exitTime.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceExit > 730) return null;
 
-    // Dynamic import — server-side only. v3 requires instantiation.
-    const YahooFinance = (await import('yahoo-finance2')).default;
-    const yf = new YahooFinance();
+    // Reuse provided client or create one (backward compat)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yf: any = yfClient ?? await createYahooFinanceClient();
 
     const period1 = exitTime;
     const period2 = new Date(exitTime.getTime() + 4 * 60 * 60 * 1000); // +4 hours

@@ -3,7 +3,7 @@ import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
-import { getPostExitPriceData } from '@/lib/market/postExitPrice';
+import { getPostExitPriceData, createYahooFinanceClient } from '@/lib/market/postExitPrice';
 import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -344,13 +344,18 @@ export async function POST(request: NextRequest) {
             const prematureExitPatterns = session.patterns.filter(
               (p) => p.patternType === 'premature_exit'
             );
+            // Create a single YahooFinance client for all patterns in this session
+            const yfClient = prematureExitPatterns.length > 0
+              ? await createYahooFinanceClient()
+              : null;
             for (const pattern of prematureExitPatterns) {
               const trade = dayTrades[pattern.triggerTradeIndex];
               if (!trade?.exitTime || !trade.exitPrice) continue;
 
               const postExitData = await getPostExitPriceData(
                 trade.symbol,
-                trade.exitTime
+                trade.exitTime,
+                yfClient
               );
               if (!postExitData) continue;
 
@@ -381,7 +386,9 @@ export async function POST(request: NextRequest) {
                 detection_data: updatedDetectionData,
               };
 
-              if (actualLeftOnTable != null) {
+              // Only override dollar_impact if deduplication didn't zero it
+              // (dollarImpact === 0 means another pattern claimed this trade's impact)
+              if (actualLeftOnTable != null && pattern.dollarImpact !== 0) {
                 updates.dollar_impact = Math.round(actualLeftOnTable * 100) / 100;
                 const moveDesc = postExitData.direction === 'up' ? 'rose' : postExitData.direction === 'down' ? 'fell' : 'stayed flat';
                 updates.description = `Early exit on ${trade.symbol}: took $${(trade.netPnl ?? 0).toFixed(0)} profit after ${trade.holdTimeMinutes} min. Price ${moveDesc} ${postExitData.maxMovePercent}% in the next 4 hours. Actual left on table: ~$${Math.round(actualLeftOnTable)}.`;
