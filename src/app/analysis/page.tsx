@@ -24,6 +24,7 @@ interface PatternData {
   confidence: 'high' | 'medium';
   dollar_impact: number | null;
   description: string | null;
+  detection_data: Record<string, unknown> | null;
   trading_sessions: { session_date: string } | null;
 }
 
@@ -91,6 +92,7 @@ function PatternsTab() {
           description={p.description}
           sessionDate={p.trading_sessions?.session_date}
           onDismiss={handleDismiss}
+          detectionData={p.detection_data}
         />
       ))}
     </div>

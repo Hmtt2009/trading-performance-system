@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
     const supabase = await (await import('@/lib/supabase/server')).createClient();
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '30'), 100);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '30', 10) || 30), 100);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     const { data: sessions, error } = await supabase
       .from('trading_sessions')

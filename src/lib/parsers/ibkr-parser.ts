@@ -128,6 +128,7 @@ function csvEscape(value: string): string {
  */
 function preprocessActivityStatement(lines: string[], startIndex: number): string {
   const result: string[] = [];
+  let payloadStartIndex: number | null = null;
 
   for (let i = startIndex; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -151,9 +152,15 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
     const rowType = cells[1]?.trim().toLowerCase();
 
     if (rowType === 'header' || rowType === 'data') {
-      // Skip section name (0), row type (1), and DataDiscriminator column/value (2)
-      // Re-escape values that contain commas (e.g. Date/Time: "2026-01-02, 14:06:43")
-      result.push(cells.slice(3).map(csvEscape).join(','));
+      if (payloadStartIndex === null) {
+        const thirdCell = cells[2]?.trim().toLowerCase();
+        payloadStartIndex = thirdCell === 'datadiscriminator' ? 3 : 2;
+      }
+
+      // Some Activity Statement exports include only "Trades","Header"
+      // before the real columns, while others add a DataDiscriminator field.
+      // Re-escape values that contain commas (e.g. Date/Time values).
+      result.push(cells.slice(payloadStartIndex).map(csvEscape).join(','));
     }
     // Skip SubTotal, Total, Notes rows
   }
@@ -200,16 +207,14 @@ export function parseIBKRExecutions(
     // Activity Statement: strip section prefix columns
     tradeLines = preprocessActivityStatement(allLines, tradeSection.startIndex);
   } else {
-    // Flex Query: find end of trades section
-    let endIndex = allLines.length;
+    // Flex Query: collect all non-empty lines from the trades section
+    const flexLines: string[] = [allLines[tradeSection.startIndex]];
     for (let i = tradeSection.startIndex + 1; i < allLines.length; i++) {
       const line = allLines[i].trim();
-      if (line === '') {
-        endIndex = i;
-        break;
-      }
+      if (line === '') continue; // skip blank lines instead of terminating
+      flexLines.push(allLines[i]);
     }
-    tradeLines = allLines.slice(tradeSection.startIndex, endIndex).join('\n');
+    tradeLines = flexLines.join('\n');
   }
 
   // Parse CSV

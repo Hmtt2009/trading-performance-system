@@ -73,6 +73,15 @@ export interface BaselineData {
   performanceByDow: Record<string, { trades: number; winRate: number; avgPnl: number; totalPnl: number }>;
 }
 
+export interface PostExitData {
+  exitPrice: number;
+  priceAt1h: number | null;
+  priceAt2h: number | null;
+  priceAt4h: number | null;
+  maxMovePercent: number;
+  direction: 'up' | 'down' | 'flat';
+}
+
 export interface PatternInstance {
   patternType: PatternType;
   confidence: ConfidenceLevel;
