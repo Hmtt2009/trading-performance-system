@@ -362,7 +362,8 @@ export async function POST(request: NextRequest) {
               postExitData: Awaited<ReturnType<typeof getPostExitPriceData>>;
             }>[]);
 
-            // Apply enrichment results to DB
+            // Apply enrichment results to DB, tracking cost delta
+            let behaviorCostDelta = 0;
             for (const result of results) {
               if (result.status !== 'fulfilled' || !result.value.postExitData) continue;
               const { pattern, trade, postExitData } = result.value;
@@ -393,7 +394,9 @@ export async function POST(request: NextRequest) {
 
               // Only override dollar_impact if deduplication didn't zero it
               if (actualLeftOnTable != null && pattern.dollarImpact !== 0) {
-                updates.dollar_impact = Math.round(actualLeftOnTable * 100) / 100;
+                const verifiedImpact = Math.round(actualLeftOnTable * 100) / 100;
+                behaviorCostDelta += verifiedImpact - Math.abs(pattern.dollarImpact);
+                updates.dollar_impact = verifiedImpact;
                 const moveDesc = postExitData.direction === 'up' ? 'rose' : postExitData.direction === 'down' ? 'fell' : 'stayed flat';
                 updates.description = `Early exit on ${trade.symbol}: took $${(trade.netPnl ?? 0).toFixed(0)} profit after ${trade.holdTimeMinutes} min. Price ${moveDesc} ${postExitData.maxMovePercent}% in the next 4 hours. Actual left on table: ~$${Math.round(actualLeftOnTable)}.`;
               }
@@ -404,6 +407,15 @@ export async function POST(request: NextRequest) {
                 .eq('session_id', sessionRecord.id)
                 .eq('trigger_trade_id', triggerDbTrade.id)
                 .eq('pattern_type', 'premature_exit');
+            }
+
+            // Update session behavior_cost if enrichment changed any impacts
+            if (behaviorCostDelta !== 0) {
+              const updatedCost = Math.round((session.behaviorCost + behaviorCostDelta) * 100) / 100;
+              await supabase
+                .from('trading_sessions')
+                .update({ behavior_cost: Math.max(0, updatedCost) })
+                .eq('id', sessionRecord.id);
             }
           } catch (enrichError) {
             // Post-exit enrichment is best-effort — never fail the upload
