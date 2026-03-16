@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
+import { toNullableNumber } from '@/lib/nullableNumber';
 import { getBrokerDetailsFromFormat } from '@/lib/brokers';
 import type { ParsedTrade } from '@/types';
 
@@ -259,9 +260,9 @@ export async function POST(request: NextRequest) {
         exitPrice: t.exit_price ? Number(t.exit_price) : null,
         quantity: t.quantity,
         totalCommission: Number(t.total_commission),
-        grossPnl: t.gross_pnl ? Number(t.gross_pnl) : null,
-        netPnl: t.net_pnl ? Number(t.net_pnl) : null,
-        pnlPercent: t.pnl_percent ? Number(t.pnl_percent) : null,
+        grossPnl: toNullableNumber(t.gross_pnl),
+        netPnl: toNullableNumber(t.net_pnl),
+        pnlPercent: toNullableNumber(t.pnl_percent),
         holdTimeMinutes: t.hold_time_minutes,
         positionValue: Number(t.position_value),
         isOpen: t.is_open,
