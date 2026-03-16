@@ -138,7 +138,8 @@ function DebriefTab() {
 function AnalysisContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const activeTab = (searchParams.get('tab') as TabKey) || 'patterns';
+  const rawTab = searchParams.get('tab');
+  const activeTab = TABS.some(t => t.key === rawTab) ? (rawTab as TabKey) : 'patterns';
   const setTab = (tab: TabKey) => { router.push(`/analysis?tab=${tab}`); };
 
   return (
