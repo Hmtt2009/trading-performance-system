@@ -7,10 +7,15 @@ interface ChartQuote {
   low: number | null;
 }
 
+/** Type alias for an instantiated yahoo-finance2 v3 client. */
+type YahooFinanceClient = InstanceType<typeof import('yahoo-finance2').default>;
+
 /**
- * Create a reusable YahooFinance instance. Call once and pass to getPostExitPriceData.
+ * Create a reusable YahooFinance instance (v3.x).
+ * The default export of yahoo-finance2 v3 is a class that must be instantiated with `new`.
+ * Call once and pass the instance to getPostExitPriceData for reuse.
  */
-export async function createYahooFinanceClient(): Promise<unknown> {
+export async function createYahooFinanceClient(): Promise<YahooFinanceClient> {
   const YahooFinance = (await import('yahoo-finance2')).default;
   return new YahooFinance();
 }
@@ -23,7 +28,7 @@ export async function createYahooFinanceClient(): Promise<unknown> {
 export async function getPostExitPriceData(
   symbol: string,
   exitTime: Date,
-  yfClient?: unknown
+  yfClient?: YahooFinanceClient | null
 ): Promise<PostExitData | null> {
   try {
     // yahoo-finance2 only has intraday data for ~730 days
@@ -31,8 +36,7 @@ export async function getPostExitPriceData(
     if (daysSinceExit > 730) return null;
 
     // Reuse provided client or create one (backward compat)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const yf: any = yfClient ?? await createYahooFinanceClient();
+    const yf = yfClient ?? await createYahooFinanceClient();
 
     const period1 = exitTime;
     const period2 = new Date(exitTime.getTime() + 4 * 60 * 60 * 1000); // +4 hours
