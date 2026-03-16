@@ -4,6 +4,8 @@ import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
 import { getPostExitPriceData, createYahooFinanceClient } from '@/lib/market/postExitPrice';
+import { toNullableNumber } from '@/lib/nullableNumber';
+import { getBrokerDetailsFromFormat } from '@/lib/brokers';
 import type { ParsedTrade } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -86,6 +88,8 @@ export async function POST(request: NextRequest) {
     // Parse the CSV
     const parseResult = parseTradeCSV(csvContent, existingHashes);
 
+    const brokerDetails = getBrokerDetailsFromFormat(parseResult.metadata.brokerFormat);
+
     // Check for fatal errors
     if (parseResult.errors.length > 0 && parseResult.trades.length === 0) {
       await supabase
@@ -107,12 +111,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!brokerDetails) {
+      await supabase
+        .from('file_uploads')
+        .update({
+          status: 'failed',
+          broker_format: parseResult.metadata.brokerFormat,
+          error_message: 'Unsupported broker format',
+          errors_count: parseResult.errors.length || 1,
+        })
+        .eq('id', uploadRecord.id);
+
+      return NextResponse.json(
+        {
+          error: 'Unsupported broker format',
+          uploadId: uploadRecord.id,
+        },
+        { status: 422 }
+      );
+    }
+
     // Get or create broker account
     const { data: brokerAccount } = await supabase
       .from('broker_accounts')
       .select()
       .eq('user_id', user.id)
-      .eq('broker_name', 'ibkr')
+      .eq('broker_name', brokerDetails.brokerName)
       .single();
 
     let brokerAccountId: string;
@@ -123,8 +147,8 @@ export async function POST(request: NextRequest) {
         .from('broker_accounts')
         .insert({
           user_id: user.id,
-          broker_name: 'ibkr',
-          account_label: 'IBKR Account',
+          broker_name: brokerDetails.brokerName,
+          account_label: brokerDetails.accountLabel,
         })
         .select()
         .single();
@@ -138,20 +162,9 @@ export async function POST(request: NextRequest) {
     // Insert trades
     const insertedTrades: { id: string; trade: ParsedTrade }[] = [];
     let duplicatesSkipped = 0;
+    let failedInserts = 0;
 
     for (const trade of parseResult.trades) {
-      // Check for duplicate trade hash
-      const { data: existing } = await supabase
-        .from('trades')
-        .select('id')
-        .eq('execution_hash', trade.executionHash)
-        .single();
-
-      if (existing) {
-        duplicatesSkipped++;
-        continue;
-      }
-
       const { data: insertedTrade, error: tradeError } = await supabase
         .from('trades')
         .insert({
@@ -185,6 +198,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
         console.error('Failed to insert trade:', tradeError);
+        failedInserts++;
         continue;
       }
 
@@ -209,14 +223,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Update upload record
+    const totalErrors = parseResult.errors.length + failedInserts;
+    const uploadStatus = insertedTrades.length === 0 && failedInserts > 0 ? 'failed' : 'completed';
     await supabase
       .from('file_uploads')
       .update({
-        status: 'completed',
+        status: uploadStatus,
         broker_format: parseResult.metadata.brokerFormat,
         trades_parsed: insertedTrades.length,
         duplicates_skipped: duplicatesSkipped + parseResult.duplicateHashes.length,
-        errors_count: parseResult.errors.length,
+        errors_count: totalErrors,
+        error_message: uploadStatus === 'failed'
+          ? `All ${failedInserts} trade inserts failed`
+          : failedInserts > 0
+            ? `${failedInserts} of ${insertedTrades.length + failedInserts} trade inserts failed`
+            : null,
       })
       .eq('id', uploadRecord.id);
 
@@ -240,9 +261,9 @@ export async function POST(request: NextRequest) {
         exitPrice: t.exit_price ? Number(t.exit_price) : null,
         quantity: t.quantity,
         totalCommission: Number(t.total_commission),
-        grossPnl: t.gross_pnl ? Number(t.gross_pnl) : null,
-        netPnl: t.net_pnl ? Number(t.net_pnl) : null,
-        pnlPercent: t.pnl_percent ? Number(t.pnl_percent) : null,
+        grossPnl: toNullableNumber(t.gross_pnl),
+        netPnl: toNullableNumber(t.net_pnl),
+        pnlPercent: toNullableNumber(t.pnl_percent),
         holdTimeMinutes: t.hold_time_minutes,
         positionValue: Number(t.position_value),
         isOpen: t.is_open,
@@ -439,6 +460,7 @@ export async function POST(request: NextRequest) {
       uploadId: uploadRecord.id,
       tradesImported: insertedTrades.length,
       duplicatesSkipped: duplicatesSkipped + parseResult.duplicateHashes.length,
+      failedInserts,
       errors: parseResult.errors,
       metadata: parseResult.metadata,
       warning:

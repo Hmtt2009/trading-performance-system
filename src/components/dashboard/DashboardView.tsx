@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -57,27 +57,29 @@ export function DashboardView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboard = useCallback(async (p: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/analysis/dashboard?period=${p}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to load dashboard');
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchDashboard(period);
-  }, [period, fetchDashboard]);
+    const controller = new AbortController();
+    const fetchDashboard = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/analysis/dashboard?period=${period}`, { signal: controller.signal });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to load dashboard');
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    fetchDashboard();
+    return () => controller.abort();
+  }, [period]);
 
   if (loading) {
     return (

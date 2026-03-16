@@ -89,15 +89,15 @@ export default function LandingPage() {
           <span className="text-[#00e87a]">EVERYONE ELSE IS PLANNING TO TAKE YOUR MONEY.</span>
         </h1>
         <p className="text-lg sm:text-xl text-[#6b6b78] max-w-2xl mx-auto mb-10 leading-relaxed">
-          Flinch automatically finds the behavioral patterns draining your account &mdash; from a single file upload.
-          No journaling. No effort. Just the truth.
+          Flinch automatically finds the behavioral patterns draining your account &mdash; from a single file upload
+          after you create a free account. No journaling. No effort. Just the truth.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/upload"
+            href="/signup"
             className="px-8 py-4 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors"
           >
-            Upload Free &mdash; No Account Needed
+            Create Free Account &mdash; Upload Your Trades
           </Link>
           <Link
             href="/dashboard"
@@ -223,10 +223,10 @@ export default function LandingPage() {
           <span className="text-[#00e87a]">START SEEING.</span>
         </h2>
         <Link
-          href="/upload"
+          href="/signup"
           className="inline-block mt-6 px-10 py-4 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors"
         >
-          Upload My Trades Free &rarr;
+          Create Free Account &rarr;
         </Link>
       </section>
 

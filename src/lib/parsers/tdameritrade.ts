@@ -178,7 +178,13 @@ function parseCSVLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        // RFC 4180: escaped quote ("") inside a quoted field -> literal "
+        current += '"';
+        i++; // skip the second quote
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current);
       current = '';
@@ -270,8 +276,9 @@ function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
 
   if (matchedQty === 0) return trades;
 
-  const vwapEntry = entryExecs.reduce((s, e) => s + e.price * e.quantity, 0) / entryQty;
-  const vwapExit = exitExecs.reduce((s, e) => s + e.price * e.quantity, 0) / exitQty;
+  // VWAP: only average the first N shares (FIFO) where N = matchedQty
+  const vwapEntry = calculateVWAP(entryExecs, matchedQty);
+  const vwapExit = calculateVWAP(exitExecs, matchedQty);
   const totalComm = [...entryExecs, ...exitExecs].reduce((s, e) => s + e.commission, 0);
   const grossPnl = isLong
     ? (vwapExit - vwapEntry) * matchedQty
@@ -281,6 +288,8 @@ function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
   const exitTime = exitExecs[exitExecs.length - 1].dateTime;
   const holdTimeMinutes = Math.round((exitTime.getTime() - entryTime.getTime()) / 60000);
   const pnlPercent = (grossPnl / (vwapEntry * matchedQty)) * 100;
+
+  const allExecs = [...entryExecs, ...exitExecs];
 
   trades.push({
     symbol: executions[0].symbol,
@@ -297,11 +306,88 @@ function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
     holdTimeMinutes,
     positionValue: round(vwapEntry * matchedQty, 4),
     isOpen: entryQty !== exitQty,
-    executionHash: generateTradeHash([...entryExecs, ...exitExecs]),
-    executions: [...entryExecs, ...exitExecs],
+    executionHash: generateTradeHash(allExecs),
+    executions: allExecs,
   });
 
+  // Handle remaining unmatched quantity
+  if (entryQty > exitQty) {
+    const remainingQty = entryQty - exitQty;
+    const remainingExecs = getUnmatchedExecutions(entryExecs, exitQty);
+    if (remainingExecs.length > 0) {
+      const remainVwap = calculateVWAP(remainingExecs, remainingQty);
+      trades.push({
+        symbol: executions[0].symbol,
+        direction: isLong ? 'long' : 'short',
+        entryTime: remainingExecs[0].dateTime,
+        exitTime: null,
+        entryPrice: round(remainVwap, 4),
+        exitPrice: null,
+        quantity: remainingQty,
+        totalCommission: 0,
+        grossPnl: null,
+        netPnl: null,
+        pnlPercent: null,
+        holdTimeMinutes: null,
+        positionValue: round(remainVwap * remainingQty, 4),
+        isOpen: true,
+        executionHash: generateTradeHash(remainingExecs),
+        executions: remainingExecs,
+      });
+    }
+  } else if (exitQty > entryQty) {
+    console.warn(
+      `[tdameritrade-parser] Warning: exitQty (${exitQty}) > entryQty (${entryQty}) for ${executions[0].symbol}. ` +
+      `${exitQty - entryQty} excess exit shares cannot be matched.`
+    );
+  }
+
   return trades;
+}
+
+/**
+ * Calculate VWAP for a set of executions up to a maximum quantity (FIFO).
+ */
+function calculateVWAP(executions: RawExecution[], maxQty: number): number {
+  let totalCost = 0;
+  let totalQty = 0;
+
+  for (const exec of executions) {
+    const qty = Math.min(exec.quantity, maxQty - totalQty);
+    totalCost += exec.price * qty;
+    totalQty += qty;
+    if (totalQty >= maxQty) break;
+  }
+
+  return totalQty > 0 ? totalCost / totalQty : 0;
+}
+
+/**
+ * Get the unmatched portion of entry executions after FIFO matching.
+ */
+function getUnmatchedExecutions(
+  entryExecs: RawExecution[],
+  matchedQty: number
+): RawExecution[] {
+  let remaining = matchedQty;
+  const unmatched: RawExecution[] = [];
+
+  for (const exec of entryExecs) {
+    if (remaining >= exec.quantity) {
+      remaining -= exec.quantity;
+    } else if (remaining > 0) {
+      // Partial: create a modified execution with remaining quantity
+      unmatched.push({
+        ...exec,
+        quantity: exec.quantity - remaining,
+      });
+      remaining = 0;
+    } else {
+      unmatched.push(exec);
+    }
+  }
+
+  return unmatched;
 }
 
 function emptyResult(message: string, totalRows: number): ParseResult {

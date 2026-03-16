@@ -18,10 +18,14 @@ export function analyzeSession(
   const winRate = closedTrades.length > 0 ? winningTrades / closedTrades.length : 0;
 
   const patterns = detectPatterns(trades, baseline);
-  const behaviorCost = patterns.reduce(
-    (s, p) => s + Math.abs(p.dollarImpact),
-    0
-  );
+  const behaviorCost = patterns.reduce((s, p) => {
+    // Only count negative impacts (losses) as behavior cost
+    // Positive impacts (profitable but flagged trades) are not costs
+    if (p.patternType === 'premature_exit') {
+      return s + p.dollarImpact; // Always positive = profit left on table
+    }
+    return s + Math.max(0, -p.dollarImpact); // Only count losses
+  }, 0);
 
   return {
     sessionDate: date,
@@ -51,7 +55,11 @@ export function computeCostOfBehavior(
   for (const p of allPatterns) {
     const existing = byType.get(p.patternType) || { instances: 0, totalImpact: 0 };
     existing.instances++;
-    existing.totalImpact += Math.abs(p.dollarImpact);
+    if (p.patternType === 'premature_exit') {
+      existing.totalImpact += p.dollarImpact; // Always positive = profit left on table
+    } else {
+      existing.totalImpact += Math.max(0, -p.dollarImpact); // Only count losses
+    }
     byType.set(p.patternType, existing);
   }
 
