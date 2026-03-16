@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseTradeCSV } from '@/lib/parsers';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
+import { getPostExitPriceData, createYahooFinanceClient } from '@/lib/market/postExitPrice';
 import { toNullableNumber } from '@/lib/nullableNumber';
 import { getBrokerDetailsFromFormat } from '@/lib/brokers';
 import type { ParsedTrade } from '@/types';
@@ -357,6 +358,93 @@ export async function POST(request: NextRequest) {
               detection_data: pattern.detectionData,
             });
             if (patternError) console.error('Failed to insert pattern:', patternError);
+          }
+
+          // Enrich premature_exit patterns with post-exit price data
+          try {
+            const prematureExitPatterns = session.patterns.filter(
+              (p) => p.patternType === 'premature_exit'
+            );
+            // Create a single YahooFinance client for all patterns in this session
+            const yfClient = prematureExitPatterns.length > 0
+              ? await createYahooFinanceClient()
+              : null;
+            // Fetch all post-exit data in parallel
+            const enrichmentJobs = prematureExitPatterns.map((pattern) => {
+              const trade = dayTrades[pattern.triggerTradeIndex];
+              if (!trade?.exitTime || !trade.exitPrice) return null;
+              return getPostExitPriceData(trade.symbol, trade.exitTime, yfClient)
+                .then((postExitData) => ({ pattern, trade, postExitData }));
+            }).filter(Boolean);
+
+            const results = await Promise.allSettled(enrichmentJobs as Promise<{
+              pattern: typeof prematureExitPatterns[number];
+              trade: typeof dayTrades[number];
+              postExitData: Awaited<ReturnType<typeof getPostExitPriceData>>;
+            }>[]);
+
+            // Apply enrichment results to DB, tracking cost delta
+            let behaviorCostDelta = 0;
+            for (const result of results) {
+              if (result.status !== 'fulfilled' || !result.value.postExitData) continue;
+              const { pattern, trade, postExitData } = result.value;
+
+              // Skip enrichment for deduplication-zeroed patterns
+              if (pattern.dollarImpact === 0) continue;
+
+              const triggerDbTrade = allUserTrades.find(
+                (t) => t.execution_hash === trade.executionHash
+              );
+              if (!triggerDbTrade) continue;
+
+              let actualLeftOnTable: number | null = null;
+              const futurePrice = postExitData.priceAt4h ?? postExitData.priceAt2h ?? postExitData.priceAt1h;
+              const exitPrice = trade.exitPrice!; // guaranteed non-null by pre-filter
+              if (futurePrice != null) {
+                if (trade.direction === 'long') {
+                  actualLeftOnTable = Math.max(0, (futurePrice - exitPrice) * trade.quantity);
+                } else {
+                  actualLeftOnTable = Math.max(0, (exitPrice - futurePrice) * trade.quantity);
+                }
+              }
+
+              // Only mark as verified if we actually computed a dollar impact
+              const verified = actualLeftOnTable != null;
+              const updates: Record<string, unknown> = {
+                detection_data: {
+                  ...pattern.detectionData,
+                  postExitData,
+                  postExitEnriched: verified,
+                },
+              };
+
+              if (actualLeftOnTable != null && pattern.dollarImpact !== 0) {
+                const verifiedImpact = Math.round(actualLeftOnTable * 100) / 100;
+                behaviorCostDelta += verifiedImpact - Math.abs(pattern.dollarImpact);
+                updates.dollar_impact = verifiedImpact;
+                const moveDesc = postExitData.direction === 'up' ? 'rose' : postExitData.direction === 'down' ? 'fell' : 'stayed flat';
+                updates.description = `Early exit on ${trade.symbol}: took $${(trade.netPnl ?? 0).toFixed(0)} profit after ${trade.holdTimeMinutes} min. Price ${moveDesc} ${postExitData.maxMovePercent}% in the next 4 hours. Actual left on table: ~$${Math.round(actualLeftOnTable)}.`;
+              }
+
+              await supabase
+                .from('pattern_detections')
+                .update(updates)
+                .eq('session_id', sessionRecord.id)
+                .eq('trigger_trade_id', triggerDbTrade.id)
+                .eq('pattern_type', 'premature_exit');
+            }
+
+            // Update session behavior_cost if enrichment changed any impacts
+            if (behaviorCostDelta !== 0) {
+              const updatedCost = Math.round((session.behaviorCost + behaviorCostDelta) * 100) / 100;
+              await supabase
+                .from('trading_sessions')
+                .update({ behavior_cost: Math.max(0, updatedCost) })
+                .eq('id', sessionRecord.id);
+            }
+          } catch (enrichError) {
+            // Post-exit enrichment is best-effort — never fail the upload
+            console.error('Post-exit enrichment error:', enrichError);
           }
         }
       }

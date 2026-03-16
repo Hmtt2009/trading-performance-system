@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 
+interface PostExitData {
+  exitPrice: number;
+  priceAt1h: number | null;
+  priceAt2h: number | null;
+  priceAt4h: number | null;
+  maxMovePercent: number;
+  direction: 'up' | 'down' | 'flat';
+}
+
 interface PatternCardProps {
   id: string;
   patternType: string;
@@ -10,6 +19,7 @@ interface PatternCardProps {
   description: string | null;
   sessionDate?: string;
   onDismiss?: (id: string) => void;
+  detectionData?: Record<string, unknown> | null;
 }
 
 const PATTERN_LABELS: Record<string, string> = {
@@ -38,6 +48,7 @@ export function PatternCard({
   description,
   sessionDate,
   onDismiss,
+  detectionData,
 }: PatternCardProps) {
   const [dismissing, setDismissing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -88,14 +99,32 @@ export function PatternCard({
             )}
           </div>
 
-          {dollarImpact !== null && (
-            <p className="text-lg font-mono font-bold text-amber mb-2">
-              -${Math.abs(dollarImpact).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              <span className="text-[10px] text-muted font-mono font-normal ml-1">
-                estimated impact
-              </span>
-            </p>
-          )}
+          {dollarImpact !== null && (() => {
+            const postExit = detectionData?.postExitData as PostExitData | undefined;
+            const isVerified = patternType === 'premature_exit' && dollarImpact !== 0 && detectionData?.postExitEnriched === true && postExit;
+            return (
+              <>
+                <p className="text-lg font-mono font-bold text-amber mb-2">
+                  -${Math.abs(dollarImpact).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-[10px] text-muted font-mono font-normal ml-1">
+                    {isVerified ? 'verified impact' : 'estimated impact'}
+                  </span>
+                </p>
+                {isVerified && postExit && (
+                  <div className="mb-2 p-2 rounded bg-surface border border-border text-xs font-mono">
+                    <p className="text-muted">
+                      After exit at ${postExit.exitPrice.toFixed(2)}, price {postExit.direction === 'up' ? 'rose' : postExit.direction === 'down' ? 'fell' : 'stayed flat'} {postExit.maxMovePercent}%
+                    </p>
+                    <div className="flex gap-3 mt-1 text-[10px] text-muted">
+                      {postExit.priceAt1h != null && <span>1h: ${postExit.priceAt1h.toFixed(2)}</span>}
+                      {postExit.priceAt2h != null && <span>2h: ${postExit.priceAt2h.toFixed(2)}</span>}
+                      {postExit.priceAt4h != null && <span>4h: ${postExit.priceAt4h.toFixed(2)}</span>}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {description && (
             <p className="text-xs text-muted mb-3 font-mono">{description}</p>

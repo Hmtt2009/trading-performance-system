@@ -23,12 +23,26 @@ export function detectPatterns(
   const tradeIndexMap = new Map<ParsedTrade, number>();
   sorted.forEach((t, i) => tradeIndexMap.set(t, i));
 
+  // Map from sorted-array index → original trades-array index.
+  // Detectors return indices relative to `sorted`, but callers index into `trades`.
+  const originalIndexMap = new Map<ParsedTrade, number>();
+  trades.forEach((t, i) => originalIndexMap.set(t, i));
+  const sortedToOriginal = sorted.map((t) => originalIndexMap.get(t) ?? -1);
+
   const patterns: PatternInstance[] = [];
 
   patterns.push(...detectOvertrading(sorted, baseline, tradeIndexMap));
   patterns.push(...detectSizeEscalation(sorted, baseline));
   patterns.push(...detectRapidReentry(sorted, baseline));
   patterns.push(...detectPrematureExit(sorted, baseline));
+
+  // Remap all indices from sorted-space to original trades-space
+  for (const p of patterns) {
+    p.triggerTradeIndex = sortedToOriginal[p.triggerTradeIndex] ?? p.triggerTradeIndex;
+    p.involvedTradeIndices = p.involvedTradeIndices.map(
+      (i) => sortedToOriginal[i] ?? i
+    );
+  }
 
   return deduplicateImpact(patterns);
 }
