@@ -67,8 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!trades || trades.length === 0) return NextResponse.json({ error: 'No trades found for this date' }, { status: 404 });
     const tradeIds = trades.map((t: { id: string }) => t.id);
     const { data: patterns } = await supabase.from('pattern_detections').select('*').eq('user_id', user.id).in('trigger_trade_id', tradeIds);
-    const { data: baseline } = await supabase.from('trader_baselines').select('*').eq('user_id', user.id).single();
-    const { data: session } = await supabase.from('trading_sessions').select('*').eq('user_id', user.id).eq('session_date', date).single();
+    const { data: baseline } = await supabase.from('trader_baselines').select('*').eq('user_id', user.id).maybeSingle();
+    const { data: session } = await supabase.from('trading_sessions').select('*').eq('user_id', user.id).eq('session_date', date).maybeSingle();
     const structuredInput = { date, session, trades, patterns, baseline };
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
