@@ -203,22 +203,26 @@ export async function POST(request: NextRequest) {
       }
 
       insertedTrades.push({ id: insertedTrade.id, trade });
+    }
 
-      // Insert executions
-      for (const exec of trade.executions) {
-        const { error: execError } = await supabase.from('trade_executions').insert({
-          trade_id: insertedTrade.id,
-          file_upload_id: uploadRecord.id,
-          side: exec.side,
-          quantity: exec.quantity,
-          price: exec.price,
-          commission: exec.commission,
-          executed_at: exec.dateTime.toISOString(),
-          raw_data: exec.rawRow,
-        });
-        if (execError) {
-          console.error('Failed to insert execution:', execError);
-        }
+    // Batch insert all executions in a single DB call
+    const allExecutions = insertedTrades.flatMap(({ id: tradeId, trade }) =>
+      trade.executions.map((exec) => ({
+        trade_id: tradeId,
+        file_upload_id: uploadRecord.id,
+        side: exec.side,
+        quantity: exec.quantity,
+        price: exec.price,
+        commission: exec.commission,
+        executed_at: exec.dateTime.toISOString(),
+        raw_data: exec.rawRow,
+      }))
+    );
+
+    if (allExecutions.length > 0) {
+      const { error: execError } = await supabase.from('trade_executions').insert(allExecutions);
+      if (execError) {
+        console.error('Failed to batch insert executions:', execError);
       }
     }
 
