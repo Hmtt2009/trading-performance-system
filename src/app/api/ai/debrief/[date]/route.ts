@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    const nextDate = new Date(date); nextDate.setDate(nextDate.getDate() + 1);
+    const nextDate = new Date(date + 'T00:00:00Z'); nextDate.setUTCDate(nextDate.getUTCDate() + 1);
     const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).gte('entry_time', date).lt('entry_time', nextDate.toISOString().split('T')[0]).order('entry_time', { ascending: true });
     if (!trades || trades.length === 0) return NextResponse.json({ error: 'No trades found for this date' }, { status: 404 });
     const tradeIds = trades.map((t: { id: string }) => t.id);

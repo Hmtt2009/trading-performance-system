@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (isNaN(dateObj.getTime())) {
       return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
     }
-    const nextDate = new Date(date); nextDate.setDate(nextDate.getDate() + 1);
+    const nextDate = new Date(date + 'T00:00:00Z'); nextDate.setUTCDate(nextDate.getUTCDate() + 1);
     const { data: trades } = await supabase.from('trades').select('*').eq('user_id', user.id).gte('entry_time', date).lt('entry_time', nextDate.toISOString().split('T')[0]).order('entry_time', { ascending: true });
     const tradeIds = (trades || []).map((t: { id: string }) => t.id);
     const { data: patterns } = tradeIds.length > 0 ? await supabase.from('pattern_detections').select('*').eq('user_id', user.id).in('trigger_trade_id', tradeIds) : { data: [] };
