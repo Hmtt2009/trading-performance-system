@@ -54,6 +54,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate MIME type to prevent disguised files (e.g., malware.exe.csv)
+    const allowedMimeTypes = new Set(['text/csv', 'text/plain', 'application/vnd.ms-excel', '']);
+    if (!allowedMimeTypes.has(file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Please upload a valid CSV file.' },
+        { status: 400 }
+      );
+    }
+
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 10MB.' },
