@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       .from('trader_baselines')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const { data: patterns } = await supabase
       .from('pattern_detections')

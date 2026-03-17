@@ -6,6 +6,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const sub = await getSubscription(user.id);
+    const access = getFeatureAccess(sub.tier);
+    if (!access.aiDebrief) {
+      return NextResponse.json({ error: 'AI debrief requires a paid subscription', upgrade: true }, { status: 403 });
+    }
     const supabase = await (await import('@/lib/supabase/server')).createClient();
     const { date } = await params;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
