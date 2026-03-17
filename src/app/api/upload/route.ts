@@ -274,6 +274,7 @@ export async function POST(request: NextRequest) {
       .eq('id', uploadRecord.id);
 
     uploadCompleted = true;
+    let enrichmentErrors = 0;
 
     // Compute/update baseline and sessions
     const { data: allUserTrades } = await supabase
@@ -416,6 +417,10 @@ export async function POST(request: NextRequest) {
               postExitData: Awaited<ReturnType<typeof getPostExitPriceData>>;
             }>[]);
 
+            // Count rejected enrichment promises
+            const rejectedCount = results.filter((r) => r.status === "rejected").length;
+            enrichmentErrors += rejectedCount;
+
             // Apply enrichment results to DB, tracking cost delta
             let behaviorCostDelta = 0;
             for (const result of results) {
@@ -478,6 +483,7 @@ export async function POST(request: NextRequest) {
           } catch (enrichError) {
             // Post-exit enrichment is best-effort — never fail the upload
             console.error('Post-exit enrichment error:', enrichError);
+            enrichmentErrors++;
           }
         }
       }
@@ -494,11 +500,16 @@ export async function POST(request: NextRequest) {
       tradesImported: insertedTrades.length,
       duplicatesSkipped: duplicatesSkipped + parseResult.duplicateHashes.length,
       failedInserts,
+      enrichmentErrors,
       errors: parseResult.errors,
       metadata: parseResult.metadata,
       warning:
         errorRate > 0.1
           ? `${Math.round(errorRate * 100)}% of rows had errors. Some trades may be missing.`
+          : undefined,
+      enrichmentWarning:
+        enrichmentErrors > 0
+          ? `${enrichmentErrors} post-exit enrichment operation(s) failed. Pattern analysis may be incomplete.`
           : undefined,
       optionsMessage:
         parseResult.metadata.optionsSkipped > 0
