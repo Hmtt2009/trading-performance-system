@@ -1,4 +1,4 @@
-import CryptoJS from 'crypto-js';
+import { createHash } from 'crypto';
 import type { RawExecution, ParsedTrade, ParseError, ParseResult } from '@/types';
 
 /**
@@ -198,7 +198,7 @@ function parseCSVLine(line: string): string[] {
 
 function generateHash(exec: RawExecution): string {
   const data = `${exec.symbol}|${exec.dateTime.toISOString()}|${exec.side}|${exec.quantity}|${exec.price}`;
-  return CryptoJS.SHA256(data).toString();
+  return createHash('sha256').update(data).digest('hex');
 }
 
 function generateTradeHash(executions: RawExecution[]): string {
@@ -206,7 +206,7 @@ function generateTradeHash(executions: RawExecution[]): string {
     .map((e) => `${e.symbol}|${e.dateTime.toISOString()}|${e.side}|${e.quantity}|${e.price}`)
     .sort()
     .join('||');
-  return CryptoJS.SHA256(data).toString();
+  return createHash('sha256').update(data).digest('hex');
 }
 
 function round(value: number, decimals: number): number {
