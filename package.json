@@ -13,13 +13,13 @@
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.0",
+    "@whop/sdk": "^0.0.34",
     "crypto-js": "^4.2.0",
     "csv-parse": "^6.1.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.0",
-    "stripe": "^20.4.1",
     "yahoo-finance2": "^3.13.2",
     "zod": "^4.3.6"
   },

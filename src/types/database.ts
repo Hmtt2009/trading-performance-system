@@ -6,8 +6,8 @@ export interface User {
   display_name: string | null;
   subscription_tier: 'free' | 'paid';
   subscription_status: 'active' | 'canceled' | 'past_due';
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
+  whop_user_id: string | null;
+  whop_membership_id: string | null;
   trial_ends_at: string | null;
   created_at: string;
   updated_at: string;
