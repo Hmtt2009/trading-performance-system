@@ -217,8 +217,7 @@ function round(value: number, decimals: number): number {
 function groupIntoTrades(executions: RawExecution[]): ParsedTrade[] {
   const groups = new Map<string, RawExecution[]>();
   for (const exec of executions) {
-    const dateStr = exec.dateTime.toISOString().split('T')[0];
-    const key = `${exec.symbol}|${dateStr}`;
+    const key = exec.symbol;
     const group = groups.get(key) || [];
     group.push(exec);
     groups.set(key, group);
