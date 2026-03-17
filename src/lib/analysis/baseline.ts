@@ -210,5 +210,5 @@ function stddev(values: number[]): number {
   if (values.length < 2) return 0;
   const avg = mean(values);
   const squaredDiffs = values.map((v) => (v - avg) ** 2);
-  return Math.sqrt(mean(squaredDiffs));
+  return Math.sqrt(sum(squaredDiffs) / (values.length - 1));
 }
