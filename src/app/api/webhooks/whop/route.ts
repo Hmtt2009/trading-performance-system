@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWhopClient } from '@/lib/whop/client';
 
+/** Truncate an ID to its first 8 characters for safe logging. */
+function truncateId(id: string | undefined | null): string {
+  if (!id) return '<none>';
+  return id.length > 8 ? `${id.slice(0, 8)}...` : id;
+}
+
 /**
  * Whop webhook handler.
  * Processes membership and payment events to keep user subscription status in sync.
@@ -63,9 +69,9 @@ export async function POST(request: NextRequest): Promise<Response> {
           dbError = true;
         } else if (!activateResult.data || activateResult.data.length === 0) {
           console.error('Membership activated but no matching user found:', {
-            whopUserId,
-            supabaseUserId: supabaseUserId || null,
-            membershipId: membership.id,
+            whopUserId: truncateId(whopUserId),
+            supabaseUserId: truncateId(supabaseUserId),
+            membershipId: truncateId(membership.id),
           });
           dbError = true;
         }
@@ -92,8 +98,8 @@ export async function POST(request: NextRequest): Promise<Response> {
           dbError = true;
         } else if (!deactivateData || deactivateData.length === 0) {
           console.error('Membership deactivated but no matching user found:', {
-            whopUserId,
-            membershipId: membership.id,
+            whopUserId: truncateId(whopUserId),
+            membershipId: truncateId(membership.id),
           });
           dbError = true;
         }
@@ -123,8 +129,8 @@ export async function POST(request: NextRequest): Promise<Response> {
           dbError = true;
         } else if (!paymentData || paymentData.length === 0) {
           console.error('Payment failed but no matching user found:', {
-            membershipId,
-            paymentId: payment.id,
+            membershipId: truncateId(membershipId),
+            paymentId: truncateId(payment.id),
           });
           dbError = true;
         }
