@@ -127,8 +127,11 @@ function csvEscape(value: string): string {
  * and rebuild clean CSV from header + data rows only.
  */
 function preprocessActivityStatement(lines: string[], startIndex: number): string {
-  const result: string[] = [];
   let payloadStartIndex: number | null = null;
+  let hasDataDiscriminator = false;
+
+  // First pass: collect all rows and detect DataDiscriminator
+  const parsedRows: { cells: string[]; discriminator: string | null }[] = [];
 
   for (let i = startIndex; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -139,7 +142,6 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
       break;
     }
 
-    // Parse the line to extract the row type
     let cells: string[];
     try {
       cells = parse(line, { relax_column_count: true })[0] as string[];
@@ -154,15 +156,31 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
     if (rowType === 'header' || rowType === 'data') {
       if (payloadStartIndex === null) {
         const thirdCell = cells[2]?.trim().toLowerCase();
-        payloadStartIndex = thirdCell === 'datadiscriminator' ? 3 : 2;
+        hasDataDiscriminator = thirdCell === 'datadiscriminator';
+        payloadStartIndex = hasDataDiscriminator ? 3 : 2;
       }
 
-      // Some Activity Statement exports include only "Trades","Header"
-      // before the real columns, while others add a DataDiscriminator field.
-      // Re-escape values that contain commas (e.g. Date/Time values).
-      result.push(cells.slice(payloadStartIndex).map(csvEscape).join(','));
+      const discriminator = hasDataDiscriminator && rowType === 'data'
+        ? cells[2]?.trim().toLowerCase() || null
+        : null;
+
+      parsedRows.push({ cells, discriminator });
     }
     // Skip SubTotal, Total, Notes rows
+  }
+
+  if (payloadStartIndex === null) return '';
+
+  // When DataDiscriminator is present, prefer Order rows (individual fills)
+  // over Trade rows (aggregated summaries) to avoid double-counting P&L.
+  const hasOrderRows = parsedRows.some((r) => r.discriminator === 'order');
+
+  const result: string[] = [];
+  for (const row of parsedRows) {
+    if (hasDataDiscriminator && hasOrderRows && row.discriminator !== null && row.discriminator !== 'order') {
+      continue;
+    }
+    result.push(row.cells.slice(payloadStartIndex).map(csvEscape).join(','));
   }
 
   return result.join('\n');
@@ -443,10 +461,47 @@ function groupExecutionsIntoTrades(executions: RawExecution[]): ParsedTrade[] {
 }
 
 /**
+ * Split chronologically sorted executions into individual round trips
+ * by tracking running position. A round trip completes when position returns to zero.
+ */
+function splitIntoRoundTrips(executions: RawExecution[]): RawExecution[][] {
+  const roundTrips: RawExecution[][] = [];
+  let current: RawExecution[] = [];
+  let position = 0;
+
+  for (const exec of executions) {
+    const signedQty = exec.side === 'buy' ? exec.quantity : -exec.quantity;
+    current.push(exec);
+    position += signedQty;
+
+    if (position === 0 && current.length >= 2) {
+      roundTrips.push(current);
+      current = [];
+    }
+  }
+
+  // Remaining executions (open or partially closed position)
+  if (current.length > 0) {
+    roundTrips.push(current);
+  }
+
+  return roundTrips;
+}
+
+/**
  * Match buy and sell executions into completed trades.
- * Uses FIFO matching within same symbol + same day.
+ * Splits into round trips first, then uses FIFO matching within each.
  */
 function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
+  const roundTrips = splitIntoRoundTrips(executions);
+  const trades: ParsedTrade[] = [];
+  for (const rtExecs of roundTrips) {
+    trades.push(...matchRoundTrip(rtExecs));
+  }
+  return trades;
+}
+
+function matchRoundTrip(executions: RawExecution[]): ParsedTrade[] {
   const trades: ParsedTrade[] = [];
 
   // Separate into buys and sells

@@ -233,7 +233,39 @@ function groupIntoTrades(executions: RawExecution[]): ParsedTrade[] {
   return trades;
 }
 
+function splitIntoRoundTrips(executions: RawExecution[]): RawExecution[][] {
+  const roundTrips: RawExecution[][] = [];
+  let current: RawExecution[] = [];
+  let position = 0;
+
+  for (const exec of executions) {
+    const signedQty = exec.side === 'buy' ? exec.quantity : -exec.quantity;
+    current.push(exec);
+    position += signedQty;
+
+    if (position === 0 && current.length >= 2) {
+      roundTrips.push(current);
+      current = [];
+    }
+  }
+
+  if (current.length > 0) {
+    roundTrips.push(current);
+  }
+
+  return roundTrips;
+}
+
 function matchExecutionsToTrades(executions: RawExecution[]): ParsedTrade[] {
+  const roundTrips = splitIntoRoundTrips(executions);
+  const trades: ParsedTrade[] = [];
+  for (const rtExecs of roundTrips) {
+    trades.push(...matchRoundTrip(rtExecs));
+  }
+  return trades;
+}
+
+function matchRoundTrip(executions: RawExecution[]): ParsedTrade[] {
   const trades: ParsedTrade[] = [];
   const buys = executions.filter((e) => e.side === 'buy');
   const sells = executions.filter((e) => e.side === 'sell');
