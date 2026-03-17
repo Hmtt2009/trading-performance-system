@@ -128,8 +128,8 @@ function detectSizeEscalation(
 ): PatternInstance[] {
   const patterns: PatternInstance[] = [];
 
-  for (let i = 2; i < trades.length; i++) {
-    // Check for 2+ consecutive losses before this trade
+  for (let i = 1; i < trades.length; i++) {
+    // Check for 1+ consecutive losses before this trade
     let consecutiveLosses = 0;
     let lossSum = 0;
     for (let j = i - 1; j >= 0; j--) {
@@ -173,7 +173,7 @@ function detectSizeEscalation(
       triggerTradeIndex: i,
       involvedTradeIndices: involvedIndices,
       dollarImpact: Math.round(dollarImpact * 100) / 100,
-      description: `Size escalation after ${consecutiveLosses} consecutive losses. After losing ${lossDetails.join(', ')}, position size increased to $${currentSize.toFixed(0)} (your average is $${baseline.avgPositionSize.toFixed(0)})`,
+      description: `Size escalation after ${consecutiveLosses} consecutive ${consecutiveLosses === 1 ? 'loss' : 'losses'}. After losing ${lossDetails.join(', ')}, position size increased to $${currentSize.toFixed(0)} (your average is $${baseline.avgPositionSize.toFixed(0)})`,
       detectionData: {
         consecutiveLosses,
         totalLossBeforeEscalation: lossSum,
