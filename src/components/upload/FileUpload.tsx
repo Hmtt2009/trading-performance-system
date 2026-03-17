@@ -113,7 +113,7 @@ export function FileUpload() {
           {fileName ? fileName : 'Drop your CSV file here'}
         </p>
         <p className="text-sm text-muted font-mono">
-          or click to browse. Supports IBKR trade exports.
+          or click to browse. Supports IBKR, Schwab, TD Ameritrade, and Webull exports.
         </p>
       </div>
 

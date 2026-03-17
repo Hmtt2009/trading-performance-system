@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         file_name: file.name,
-        file_path: `uploads/${user.id}/${Date.now()}-${file.name}`,
+        file_path: `uploads/${user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
         file_size_bytes: file.size,
         status: 'processing',
       })
