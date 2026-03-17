@@ -170,6 +170,135 @@ describe('IBKR Parser', () => {
       expect(result.trades).toHaveLength(0);
     });
   });
+
+  describe('Commission reconciliation (Order vs Trade rows)', () => {
+    it('should use Trade row commission when Order rows have lower commission', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Statement","Data","BrokerName","Interactive Brokers"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        '"Trades","Data","Order","STK","USD","TEST","2024-03-15 09:35:00","100","10.00","10.00","-1000.00","-0.35","1000.00","","","O"',
+        '"Trades","Data","Order","STK","USD","TEST","2024-03-15 10:15:00","-100","10.50","10.50","1050.00","-0.35","1000.00","50.00","","C"',
+        '"Trades","Data","Trade","STK","USD","TEST","","200","","","50.00","-1.24","","50.00","","O;C"',
+        '"Trades","SubTotal","","","","","","","","","","","","","",""',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.trades).toHaveLength(1);
+      expect(result.executions).toHaveLength(2);
+
+      const totalComm = result.executions.reduce((s, e) => s + e.commission, 0);
+      expect(totalComm).toBeCloseTo(1.24, 2);
+
+      expect(result.trades[0].grossPnl).toBe(50);
+      expect(result.trades[0].netPnl).toBeCloseTo(48.76, 2);
+    });
+
+    it('should distribute Trade commission evenly when Order rows have $0 commission', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        '"Trades","Data","Order","STK","USD","ZERO","2024-03-15 09:35:00","100","20.00","20.00","-2000.00","0.00","2000.00","","","O"',
+        '"Trades","Data","Order","STK","USD","ZERO","2024-03-15 10:15:00","-100","20.80","20.80","2080.00","0.00","2000.00","80.00","","C"',
+        '"Trades","Data","Trade","STK","USD","ZERO","","200","","","80.00","-2.48","","80.00","",""',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.trades).toHaveLength(1);
+      const totalComm = result.executions.reduce((s, e) => s + e.commission, 0);
+      expect(totalComm).toBeCloseTo(2.48, 2);
+      expect(result.trades[0].netPnl).toBeCloseTo(77.52, 2);
+    });
+
+    it('should not adjust commission when Order rows already match Trade rows', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        '"Trades","Data","Order","STK","USD","SAME","2024-03-15 09:35:00","100","15.00","15.00","-1500.00","-1.00","1500.00","","","O"',
+        '"Trades","Data","Order","STK","USD","SAME","2024-03-15 10:15:00","-100","15.50","15.50","1550.00","-1.00","1500.00","50.00","","C"',
+        '"Trades","Data","Trade","STK","USD","SAME","","200","","","50.00","-2.00","","50.00","",""',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.trades).toHaveLength(1);
+      const totalComm = result.executions.reduce((s, e) => s + e.commission, 0);
+      expect(totalComm).toBeCloseTo(2.00, 2);
+      expect(result.trades[0].netPnl).toBeCloseTo(48.00, 2);
+    });
+
+    it('should correctly flip a borderline trade from win to loss with full commission', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        '"Trades","Data","Order","STK","USD","FLIP","2024-03-15 09:35:00","100","5.00","5.00","-500.00","-0.10","500.00","","","O"',
+        '"Trades","Data","Order","STK","USD","FLIP","2024-03-15 10:15:00","-100","5.005","5.005","500.50","-0.10","500.00","0.50","","C"',
+        '"Trades","Data","Trade","STK","USD","FLIP","","200","","","0.50","-1.24","","0.50","",""',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.trades).toHaveLength(1);
+      const trade = result.trades[0];
+      expect(trade.grossPnl).toBeCloseTo(0.50, 2);
+      // Net: 0.50 - 1.24 = -0.74 (should be counted as a LOSS)
+      expect(trade.netPnl).toBeLessThan(0);
+    });
+
+    it('should reconcile multiple symbols independently', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        // AAPL: Order commission matches Trade — no adjustment expected
+        '"Trades","Data","Order","STK","USD","AAPL","2024-03-15 09:30:00","50","170.00","170.00","-8500.00","-1.00","8500.00","","","O"',
+        '"Trades","Data","Order","STK","USD","AAPL","2024-03-15 10:00:00","-50","172.00","172.00","8600.00","-1.00","8500.00","100.00","","C"',
+        '"Trades","Data","Trade","STK","USD","AAPL","","100","","","100.00","-2.00","","100.00","",""',
+        // TSLA: Order commission lower than Trade — should be adjusted
+        '"Trades","Data","Order","STK","USD","TSLA","2024-03-15 11:00:00","30","200.00","200.00","-6000.00","-0.30","6000.00","","","O"',
+        '"Trades","Data","Order","STK","USD","TSLA","2024-03-15 12:00:00","-30","202.00","202.00","6060.00","-0.30","6000.00","60.00","","C"',
+        '"Trades","Data","Trade","STK","USD","TSLA","","60","","","60.00","-1.80","","60.00","",""',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.trades).toHaveLength(2);
+      const aaplExecs = result.executions.filter((e) => e.symbol === 'AAPL');
+      const tslaExecs = result.executions.filter((e) => e.symbol === 'TSLA');
+
+      // AAPL: commission unchanged at 2.00 total
+      const aaplComm = aaplExecs.reduce((s, e) => s + e.commission, 0);
+      expect(aaplComm).toBeCloseTo(2.00, 2);
+
+      // TSLA: commission scaled from 0.60 to 1.80
+      const tslaComm = tslaExecs.reduce((s, e) => s + e.commission, 0);
+      expect(tslaComm).toBeCloseTo(1.80, 2);
+    });
+
+    it('should preserve Order commissions when no Trade rows exist', () => {
+      const csv = [
+        '"Statement","Header","Field Name","Field Value"',
+        '"Trades","Header","DataDiscriminator","Asset Category","Currency","Symbol","Date/Time","Quantity","T. Price","C. Price","Proceeds","Comm/Fee","Basis","Realized P/L","MTM P/L","Code"',
+        '"Trades","Data","Order","STK","USD","NOTRADE","2024-03-15 09:35:00","100","10.00","10.00","-1000.00","-0.50","1000.00","","","O"',
+        '"Trades","Data","Order","STK","USD","NOTRADE","2024-03-15 10:15:00","-100","10.30","10.30","1030.00","-0.50","1000.00","30.00","","C"',
+        '"Transfers","Header","Symbol","DateTime"',
+      ].join('\n');
+
+      const result = parseIBKRExecutions(csv);
+
+      expect(result.trades).toHaveLength(1);
+      const totalComm = result.executions.reduce((s, e) => s + e.commission, 0);
+      expect(totalComm).toBeCloseTo(1.00, 2);
+      expect(result.trades[0].netPnl).toBeCloseTo(29.00, 2);
+    });
+  });
 });
 
 describe('Broker Detection', () => {

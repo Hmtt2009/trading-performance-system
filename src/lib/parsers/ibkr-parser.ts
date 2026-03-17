@@ -175,6 +175,68 @@ function preprocessActivityStatement(lines: string[], startIndex: number): strin
   // over Trade rows (aggregated summaries) to avoid double-counting P&L.
   const hasOrderRows = parsedRows.some((r) => r.discriminator === 'order');
 
+  // Reconcile commission between Order and Trade rows.
+  // IBKR Trade summary rows may include exchange/regulatory fees that
+  // individual Order rows don't carry. When Trade row total commission
+  // exceeds Order row total for a symbol, scale Order commissions up.
+  // Note: IBKR stores Comm/Fee as negative values (e.g. -1.24).
+  // We accumulate absolute values for comparison, but preserve the
+  // original negative sign when scaling. Downstream Math.abs() in
+  // parseIBKRExecutions handles the final sign normalization.
+  if (hasDataDiscriminator && hasOrderRows) {
+    const headerRow = parsedRows.find((r) => r.discriminator === null);
+    if (headerRow) {
+      const commIdx = headerRow.cells.findIndex(
+        (c, i) => i >= payloadStartIndex! &&
+          ['comm/fee', 'commission', 'ibcommission'].includes(c.trim().toLowerCase())
+      );
+      const symbolIdx = headerRow.cells.findIndex(
+        (c, i) => i >= payloadStartIndex! && c.trim().toLowerCase() === 'symbol'
+      );
+
+      if (commIdx >= 0 && symbolIdx >= 0) {
+        const orderCommBySymbol = new Map<string, number>();
+        const tradeCommBySymbol = new Map<string, number>();
+        const orderCountBySymbol = new Map<string, number>();
+
+        for (const row of parsedRows) {
+          if (row.discriminator === null) continue;
+          const symbol = row.cells[symbolIdx]?.trim();
+          const comm = Math.abs(parseFloat(row.cells[commIdx] || '0') || 0);
+          if (!symbol) continue;
+
+          if (row.discriminator === 'order') {
+            orderCommBySymbol.set(symbol, (orderCommBySymbol.get(symbol) || 0) + comm);
+            orderCountBySymbol.set(symbol, (orderCountBySymbol.get(symbol) || 0) + 1);
+          } else if (row.discriminator === 'trade') {
+            tradeCommBySymbol.set(symbol, (tradeCommBySymbol.get(symbol) || 0) + comm);
+          }
+        }
+
+        for (const [symbol, tradeComm] of tradeCommBySymbol) {
+          const orderComm = orderCommBySymbol.get(symbol) || 0;
+          if (tradeComm <= orderComm + 0.001) continue;
+
+          for (const row of parsedRows) {
+            if (row.discriminator !== 'order') continue;
+            if (row.cells[symbolIdx]?.trim() !== symbol) continue;
+
+            const origComm = parseFloat(row.cells[commIdx] || '0') || 0;
+
+            if (Math.abs(orderComm) > 0.001) {
+              // Proportional: scale each Order row's commission by ratio
+              row.cells[commIdx] = String(origComm * (tradeComm / orderComm));
+            } else {
+              // Order rows have $0 commission — distribute Trade total evenly
+              const count = orderCountBySymbol.get(symbol) || 1;
+              row.cells[commIdx] = String(-(tradeComm / count));
+            }
+          }
+        }
+      }
+    }
+  }
+
   const result: string[] = [];
   for (const row of parsedRows) {
     if (hasDataDiscriminator && hasOrderRows && row.discriminator !== null && row.discriminator !== 'order') {
