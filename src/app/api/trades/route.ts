@@ -15,8 +15,22 @@ export async function GET(request: NextRequest) {
     const symbol = searchParams.get('symbol');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    const validSortColumns = ['entry_time', 'symbol', 'net_pnl', 'position_value', 'hold_time_minutes'];
     const sortBy = searchParams.get('sortBy') || 'entry_time';
-    const sortDir = searchParams.get('sortDir') === 'asc' ? true : false;
+    if (!validSortColumns.includes(sortBy)) {
+      return NextResponse.json(
+        { error: `Invalid sortBy value. Must be one of: ${validSortColumns.join(', ')}` },
+        { status: 400 }
+      );
+    }
+    const rawSortDir = searchParams.get('sortDir');
+    if (rawSortDir !== null && rawSortDir !== 'asc' && rawSortDir !== 'desc') {
+      return NextResponse.json(
+        { error: "Invalid sortDir value. Must be 'asc' or 'desc'" },
+        { status: 400 }
+      );
+    }
+    const sortDir = rawSortDir === 'asc';
 
     let query = supabase
       .from('trades')
@@ -27,11 +41,9 @@ export async function GET(request: NextRequest) {
     if (dateFrom) query = query.gte('entry_time', dateFrom);
     if (dateTo) query = query.lte('entry_time', dateTo);
 
-    const validSortColumns = ['entry_time', 'symbol', 'net_pnl', 'position_value', 'hold_time_minutes'];
-    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'entry_time';
     const offset = (page - 1) * limit;
 
-    query = query.order(sortColumn, { ascending: sortDir }).range(offset, offset + limit - 1);
+    query = query.order(sortBy, { ascending: sortDir }).range(offset, offset + limit - 1);
 
     const { data: trades, error, count } = await query;
 
