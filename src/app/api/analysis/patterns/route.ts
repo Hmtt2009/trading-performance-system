@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
-import { getSubscription, filterPatternsByTier } from '@/lib/auth/checkSubscription';
+import { getSubscription, filterPatternsByTier, VALID_PATTERN_TYPES } from '@/lib/auth/checkSubscription';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,9 +10,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const patternType = searchParams.get('type');
     const sessionId = searchParams.get('sessionId');
-    const validPatternTypes = ['overtrading', 'size_escalation', 'rapid_reentry', 'premature_exit'];
-    if (patternType && !validPatternTypes.includes(patternType)) {
-      return NextResponse.json({ error: `Invalid pattern type. Must be one of: ${validPatternTypes.join(', ')}` }, { status: 400 });
+    if (patternType && !(VALID_PATTERN_TYPES as readonly string[]).includes(patternType)) {
+      return NextResponse.json({ error: `Invalid pattern type. Must be one of: ${VALID_PATTERN_TYPES.join(', ')}` }, { status: 400 });
     }
     if (sessionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
       return NextResponse.json({ error: 'Invalid session ID format' }, { status: 400 });
