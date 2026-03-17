@@ -23,7 +23,14 @@ export async function POST() {
 
     const whop = getWhopClient();
 
-    const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard?checkout=success`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) {
+      return NextResponse.json(
+        { error: 'Application URL not configured' },
+        { status: 503 }
+      );
+    }
+    const returnUrl = `${appUrl}/dashboard?checkout=success`;
 
     // Create checkout using plan_id variant (no company_id needed)
     const checkout = await whop.checkoutConfigurations.create({
