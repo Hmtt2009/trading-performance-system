@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d';
+    const validPeriods = ['7d', '30d', '90d', 'all'];
+    if (!validPeriods.includes(period)) {
+      return NextResponse.json({ error: `Invalid period value. Must be one of: ${validPeriods.join(', ')}` }, { status: 400 });
+    }
 
     const now = new Date();
     let dateFrom: Date;

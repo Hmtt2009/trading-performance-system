@@ -15,6 +15,13 @@ export async function GET(request: NextRequest) {
     const symbol = searchParams.get('symbol');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (dateFrom && !dateRegex.test(dateFrom)) {
+      return NextResponse.json({ error: 'Invalid dateFrom format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
+    if (dateTo && !dateRegex.test(dateTo)) {
+      return NextResponse.json({ error: 'Invalid dateTo format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
     const validSortColumns = ['entry_time', 'symbol', 'net_pnl', 'position_value', 'hold_time_minutes'];
     const sortBy = searchParams.get('sortBy') || 'entry_time';
     if (!validSortColumns.includes(sortBy)) {
