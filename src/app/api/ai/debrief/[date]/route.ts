@@ -98,6 +98,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const aiData = await response.json();
     const debriefText = aiData.content?.[0]?.text || 'Unable to generate debrief.';
+    // Store full (untruncated) trade data for audit trail and future re-analysis
     const fullInput = { date, session, trades, patterns, baseline };
     const { data: saved } = await supabase.from('ai_debriefs').upsert({ user_id: user.id, session_id: session?.id || null, debrief_type: 'daily', period_start: date, period_end: date, structured_input: fullInput, debrief_text: debriefText, input_tokens: aiData.usage?.input_tokens || 0, output_tokens: aiData.usage?.output_tokens || 0 }, { onConflict: 'user_id,debrief_type,period_start' }).select().single();
     return NextResponse.json({ debrief: saved });

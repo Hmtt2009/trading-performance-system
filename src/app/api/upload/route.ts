@@ -379,26 +379,21 @@ export async function POST(request: NextRequest) {
             .delete()
             .eq('session_id', sessionRecord.id);
 
-          // Insert new patterns
-          for (const pattern of session.patterns) {
+          // Batch insert all patterns for this session
+          const patternRows = session.patterns.map((pattern) => {
             const triggerTrade = dayTrades[pattern.triggerTradeIndex];
             const triggerDbTrade = allUserTrades.find(
               (t) => t.execution_hash === triggerTrade?.executionHash
             );
-
-            // Resolve involved trade indices to DB IDs
             const involvedTradeIds = (pattern.involvedTradeIndices || [])
               .map((idx) => {
                 const involved = dayTrades[idx];
                 if (!involved) return null;
-                const dbTrade = allUserTrades.find(
-                  (t) => t.execution_hash === involved.executionHash
-                );
-                return dbTrade?.id || null;
+                return allUserTrades.find((t) => t.execution_hash === involved.executionHash)?.id || null;
               })
               .filter(Boolean) as string[];
 
-            const { error: patternError } = await supabase.from('pattern_detections').insert({
+            return {
               user_id: user.id,
               session_id: sessionRecord.id,
               pattern_type: pattern.patternType,
@@ -409,8 +404,12 @@ export async function POST(request: NextRequest) {
               dollar_impact: pattern.dollarImpact,
               description: pattern.description,
               detection_data: pattern.detectionData,
-            });
-            if (patternError) console.error('Failed to insert pattern:', patternError);
+            };
+          });
+
+          if (patternRows.length > 0) {
+            const { error: patternError } = await supabase.from('pattern_detections').insert(patternRows);
+            if (patternError) console.error('Failed to batch insert patterns:', patternError);
           }
 
           // Enrich premature_exit patterns with post-exit price data
