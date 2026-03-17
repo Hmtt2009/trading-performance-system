@@ -10,5 +10,5 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS whop_user_id TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS whop_membership_id TEXT;
 
 -- Index for webhook lookups
-CREATE INDEX IF NOT EXISTS idx_users_whop_user_id ON public.users (whop_user_id) WHERE whop_user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whop_user_id ON public.users (whop_user_id) WHERE whop_user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_whop_membership_id ON public.users (whop_membership_id) WHERE whop_membership_id IS NOT NULL;
