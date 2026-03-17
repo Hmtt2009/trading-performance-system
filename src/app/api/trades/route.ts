@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
     const supabase = await (await import('@/lib/supabase/server')).createClient();
 
     const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
-    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50') || 50), 100);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50), 100);
     const symbol = searchParams.get('symbol');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
