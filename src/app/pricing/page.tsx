@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 
 const FREE_FEATURES = [
@@ -19,6 +20,25 @@ const PRO_FEATURES = [
 ];
 
 export default function PricingPage() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleStartTrial = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/billing/checkout', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to start checkout');
+      }
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-[#070709] text-[#e0e0e8]">
       {/* Nav */}
@@ -88,11 +108,24 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
+            {error && (
+              <div className="mb-3 p-2 rounded bg-[rgba(255,69,96,0.08)] border border-[#ff4560]/20 text-[#ff4560] text-xs font-mono">
+                {error}
+              </div>
+            )}
             <button
-              onClick={() => alert('Stripe coming soon')}
-              className="w-full py-3 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors"
+              onClick={handleStartTrial}
+              disabled={loading}
+              className="w-full py-3 bg-[#00e87a] text-[#070709] rounded font-mono font-bold text-sm hover:bg-[#00e87a]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Start Free Trial
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-[#070709] border-t-transparent rounded-full animate-spin" />
+                  Redirecting...
+                </>
+              ) : (
+                'Start Free Trial'
+              )}
             </button>
           </div>
         </div>
