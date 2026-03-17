@@ -10,6 +10,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
     }
+    const dateObj = new Date(date + 'T00:00:00Z');
+    if (isNaN(dateObj.getTime())) {
+      return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
+    }
     const { data: debrief } = await supabase.from('ai_debriefs').select('*').eq('user_id', user.id).eq('period_start', date).eq('debrief_type', 'daily').single();
     return NextResponse.json({ debrief: debrief || null });
   } catch (err) { console.error('Debrief GET error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
@@ -23,6 +27,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { date } = await params;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
+    const dateObj = new Date(date + 'T00:00:00Z');
+    if (isNaN(dateObj.getTime())) {
+      return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
     }
 
     // Rate limiting: if a debrief was generated for this user+date within the last 10 minutes, return it
