@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
+import { getSubscription, filterPatternsByTier } from '@/lib/auth/checkSubscription';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest) {
     if (sessionId) query = query.eq('session_id', sessionId);
     const { data: patterns, error } = await query;
     if (error) return NextResponse.json({ error: 'Failed to fetch patterns' }, { status: 500 });
-    return NextResponse.json({ patterns });
+    const sub = await getSubscription(user.id);
+    const filtered = filterPatternsByTier(patterns || [], sub.tier);
+    return NextResponse.json({ patterns: filtered, gated: filtered.length < (patterns || []).length });
   } catch (err) { console.error('Patterns error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }
