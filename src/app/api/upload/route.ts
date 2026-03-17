@@ -54,6 +54,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate MIME type to prevent disguised files (e.g., malware.exe.csv)
+    const ALLOWED_CSV_MIME_TYPES = new Set([
+      'text/csv',
+      'text/plain',
+      'application/vnd.ms-excel', // Some browsers report CSVs as this
+      '',                          // Some environments don't set MIME type
+    ]);
+    if (!ALLOWED_CSV_MIME_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Please upload a valid CSV file.' },
+        { status: 400 }
+      );
+    }
+
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 10MB.' },
@@ -318,6 +332,8 @@ export async function POST(request: NextRequest) {
       if (baselineError) console.error('Failed to update baseline:', baselineError);
 
       // Create/update session records for newly imported dates
+      let enrichmentErrors = 0;
+
       const newDates = new Set(
         insertedTrades.map((t) =>
           t.trade.entryTime.toISOString().split('T')[0]
@@ -407,6 +423,10 @@ export async function POST(request: NextRequest) {
               postExitData: Awaited<ReturnType<typeof getPostExitPriceData>>;
             }>[]);
 
+            // Count rejected enrichment promises
+            const rejectedCount = results.filter((r) => r.status === 'rejected').length;
+            enrichmentErrors += rejectedCount;
+
             // Apply enrichment results to DB, tracking cost delta
             let behaviorCostDelta = 0;
             for (const result of results) {
@@ -469,6 +489,7 @@ export async function POST(request: NextRequest) {
           } catch (enrichError) {
             // Post-exit enrichment is best-effort — never fail the upload
             console.error('Post-exit enrichment error:', enrichError);
+            enrichmentErrors++;
           }
         }
       }
