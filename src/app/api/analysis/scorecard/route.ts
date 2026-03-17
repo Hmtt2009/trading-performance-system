@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
+import { getSubscription } from '@/lib/auth/checkSubscription';
 
 interface RawSegment {
   trades: number;
@@ -24,6 +25,10 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const sub = await getSubscription(user.id);
+    if (sub.tier !== 'paid') {
+      return NextResponse.json({ error: 'Scorecard requires a paid subscription', upgrade: true }, { status: 403 });
+    }
     const supabase = await (await import('@/lib/supabase/server')).createClient();
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '90d';

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
+import { getSubscription, getFeatureAccess } from '@/lib/auth/checkSubscription';
 
 interface WeekData {
   weekStart: string;
@@ -32,6 +33,11 @@ export async function GET() {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const sub = await getSubscription(user.id);
+    const access = getFeatureAccess(sub.tier);
+    if (!access.weeklyReview) {
+      return NextResponse.json({ error: 'Weekly review requires a paid subscription', upgrade: true }, { status: 403 });
+    }
     const supabase = await (await import('@/lib/supabase/server')).createClient();
 
     // Fetch all sessions
