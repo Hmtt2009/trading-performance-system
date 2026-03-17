@@ -8,7 +8,7 @@ export function detectPatterns(
   trades: ParsedTrade[],
   baseline: BaselineData
 ): PatternInstance[] {
-  if (baseline.totalTradesAnalyzed < 15) {
+  if (baseline.totalTradesAnalyzed < 5) {
     return []; // Not enough data for pattern detection
   }
 
@@ -128,8 +128,8 @@ function detectSizeEscalation(
 ): PatternInstance[] {
   const patterns: PatternInstance[] = [];
 
-  for (let i = 2; i < trades.length; i++) {
-    // Check for 2+ consecutive losses before this trade
+  for (let i = 1; i < trades.length; i++) {
+    // Check for 1+ consecutive losses before this trade
     let consecutiveLosses = 0;
     let lossSum = 0;
     for (let j = i - 1; j >= 0; j--) {
@@ -141,12 +141,14 @@ function detectSizeEscalation(
       }
     }
 
-    if (consecutiveLosses < 2) continue;
+    if (consecutiveLosses < 1) continue;
 
     const currentSize = trades[i].positionValue;
-    const sizeThreshold = baseline.avgPositionSize * 1.5;
+    const baselineExceeded = currentSize > baseline.avgPositionSize * 1.5;
+    const prevTradeSize = trades[i - 1].positionValue;
+    const prevTradeExceeded = currentSize > prevTradeSize * 1.5;
 
-    if (currentSize <= sizeThreshold) continue;
+    if (!baselineExceeded && !prevTradeExceeded) continue;
 
     // Calculate what P&L would have been at normal size
     const pnlPercent = trades[i].pnlPercent || 0;
@@ -171,7 +173,7 @@ function detectSizeEscalation(
       triggerTradeIndex: i,
       involvedTradeIndices: involvedIndices,
       dollarImpact: Math.round(dollarImpact * 100) / 100,
-      description: `Size escalation after ${consecutiveLosses} consecutive losses. After losing ${lossDetails.join(', ')}, position size increased to $${currentSize.toFixed(0)} (your average is $${baseline.avgPositionSize.toFixed(0)})`,
+      description: `Size escalation after ${consecutiveLosses} consecutive ${consecutiveLosses === 1 ? 'loss' : 'losses'}. After losing ${lossDetails.join(', ')}, position size increased to $${currentSize.toFixed(0)} (your average is $${baseline.avgPositionSize.toFixed(0)})`,
       detectionData: {
         consecutiveLosses,
         totalLossBeforeEscalation: lossSum,
@@ -197,7 +199,7 @@ function detectRapidReentry(
 
   if (baseline.avgTimeBetweenTradesMinutes <= 0) return patterns;
 
-  const rapidThreshold = baseline.avgTimeBetweenTradesMinutes * 0.4;
+  const rapidThreshold = Math.max(baseline.avgTimeBetweenTradesMinutes * 0.4, 5);
 
   for (let i = 1; i < trades.length; i++) {
     const prevTrade = trades[i - 1];
