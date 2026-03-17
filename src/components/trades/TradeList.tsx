@@ -21,6 +21,11 @@ function formatCurrency(value: number | null): string {
   return `${prefix}${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatPrice(value: number | null): string {
+  if (value === null) return '--';
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function formatPercent(value: number | null): string {
   if (value === null) return '--';
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
@@ -53,6 +58,7 @@ export function TradeList() {
   const [sortBy, setSortBy] = useState<SortColumn>('entry_time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [symbolFilter, setSymbolFilter] = useState('');
+  const [showOpen, setShowOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -129,6 +135,16 @@ export function TradeList() {
             }}
             className="px-3 py-1.5 text-xs font-mono rounded bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:border-green/50"
           />
+          <button
+            onClick={() => setShowOpen((v) => !v)}
+            className={`px-3 py-1.5 text-[10px] font-mono rounded border transition-colors ${
+              showOpen
+                ? 'border-green/50 text-green bg-green/10'
+                : 'border-border text-muted hover:text-foreground'
+            }`}
+          >
+            {showOpen ? 'HIDE OPEN' : 'SHOW OPEN'}
+          </button>
           {data && (
             <span className="text-[10px] text-muted font-mono">
               {data.pagination.total} trades
@@ -154,6 +170,12 @@ export function TradeList() {
                 <th className="text-left px-4 py-2.5 text-[10px] text-muted uppercase tracking-widest font-mono font-bold">
                   Exit
                 </th>
+                <th className="text-right px-4 py-2.5 text-[10px] text-muted uppercase tracking-widest font-mono font-bold">
+                  Entry $
+                </th>
+                <th className="text-right px-4 py-2.5 text-[10px] text-muted uppercase tracking-widest font-mono font-bold">
+                  Exit $
+                </th>
                 <th className="text-right px-4 py-2.5 text-[10px] text-muted uppercase tracking-widest font-mono font-bold cursor-pointer hover:text-foreground" onClick={() => handleSort('net_pnl')}>
                   P&L <SortIcon column="net_pnl" />
                 </th>
@@ -171,12 +193,14 @@ export function TradeList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={10} className="text-center py-12">
                     <div className="w-6 h-6 border-2 border-green border-t-transparent rounded-full animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : data && data.trades.length > 0 ? (
-                data.trades.map((trade) => {
+                data.trades
+                .filter((trade) => showOpen || !trade.is_open)
+                .map((trade) => {
                   const pnl = trade.net_pnl;
                   const pnlColor =
                     pnl !== null && pnl > 0
@@ -214,6 +238,12 @@ export function TradeList() {
                           ? 'OPEN'
                           : '--'}
                       </td>
+                      <td className="px-4 py-2.5 text-right text-muted font-mono">
+                        {formatPrice(trade.entry_price)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-muted font-mono">
+                        {formatPrice(trade.exit_price)}
+                      </td>
                       <td className={`px-4 py-2.5 text-right font-mono font-bold ${pnlColor}`}>
                         {formatCurrency(pnl)}
                       </td>
@@ -233,7 +263,7 @@ export function TradeList() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted font-mono">
+                  <td colSpan={10} className="text-center py-12 text-muted font-mono">
                     No trades found. Upload a CSV to get started.
                   </td>
                 </tr>
