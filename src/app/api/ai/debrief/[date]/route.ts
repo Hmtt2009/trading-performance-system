@@ -74,7 +74,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { data: patterns } = await supabase.from('pattern_detections').select('*').eq('user_id', user.id).in('trigger_trade_id', tradeIds);
     const { data: baseline } = await supabase.from('trader_baselines').select('*').eq('user_id', user.id).maybeSingle();
     const { data: session } = await supabase.from('trading_sessions').select('*').eq('user_id', user.id).eq('session_date', date).maybeSingle();
-    const structuredInput = { date, session, trades, patterns, baseline };
+    // Truncate trade data for AI input to control token costs
+    const MAX_TRADES_FOR_AI = 30;
+    const truncatedTrades = trades.length > MAX_TRADES_FOR_AI
+      ? [
+          ...trades.slice(0, MAX_TRADES_FOR_AI),
+          { _summary: `...and ${trades.length - MAX_TRADES_FOR_AI} more trades (${trades.length} total)` },
+        ]
+      : trades;
+    const structuredInput = { date, session, trades: truncatedTrades, patterns, baseline };
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: 'You are a professional trading performance coach. Analyze trading data and deliver honest, specific, actionable feedback. Reference specific trades by ticker and time. Never invent data.', messages: [{ role: 'user', content: `Session data:\n\n${JSON.stringify(structuredInput, null, 2)}\n\nGenerate coaching debrief:\n1. Session summary\n2. What went well\n3. What went wrong\n4. Cost of behavior\n5. One actionable recommendation\n\nUnder 400 words.` }] }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1500, system: 'You are a professional trading performance coach. Analyze trading data and deliver honest, specific, actionable feedback. Reference specific trades by ticker and time. Never invent data.', messages: [{ role: 'user', content: `Session data:\n\n${JSON.stringify(structuredInput, null, 2)}\n\nGenerate coaching debrief:\n1. Session summary\n2. What went well\n3. What went wrong\n4. Cost of behavior\n5. One actionable recommendation\n\nUnder 400 words.` }] }),
     });
     if (!response.ok) {
       console.error('Claude API error:', response.status, await response.text());
@@ -90,7 +98,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const aiData = await response.json();
     const debriefText = aiData.content?.[0]?.text || 'Unable to generate debrief.';
-    const { data: saved } = await supabase.from('ai_debriefs').upsert({ user_id: user.id, session_id: session?.id || null, debrief_type: 'daily', period_start: date, period_end: date, structured_input: structuredInput, debrief_text: debriefText, input_tokens: aiData.usage?.input_tokens || 0, output_tokens: aiData.usage?.output_tokens || 0 }, { onConflict: 'user_id,debrief_type,period_start' }).select().single();
+    const fullInput = { date, session, trades, patterns, baseline };
+    const { data: saved } = await supabase.from('ai_debriefs').upsert({ user_id: user.id, session_id: session?.id || null, debrief_type: 'daily', period_start: date, period_end: date, structured_input: fullInput, debrief_text: debriefText, input_tokens: aiData.usage?.input_tokens || 0, output_tokens: aiData.usage?.output_tokens || 0 }, { onConflict: 'user_id,debrief_type,period_start' }).select().single();
     return NextResponse.json({ debrief: saved });
   } catch (err) { console.error('Debrief POST error:', err); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }
