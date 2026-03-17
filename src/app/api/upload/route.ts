@@ -20,6 +20,25 @@ export async function POST(request: NextRequest) {
     }
     supabase = await (await import('@/lib/supabase/server')).createClient();
 
+    // Rate limiting: max 10 uploads per hour per user
+    const MAX_UPLOADS_PER_HOUR = 10;
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const { count: recentUploadCount } = await supabase
+      .from('file_uploads')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', oneHourAgo.toISOString());
+
+    if ((recentUploadCount ?? 0) >= MAX_UPLOADS_PER_HOUR) {
+      return NextResponse.json(
+        { error: 'Too many uploads. Please wait before uploading again (max 10 per hour).' },
+        {
+          status: 429,
+          headers: { 'Retry-After': '3600' },
+        }
+      );
+    }
+
     // Get form data
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
