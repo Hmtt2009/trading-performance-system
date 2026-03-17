@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 
+export const VALID_PATTERN_TYPES = ['overtrading', 'size_escalation', 'rapid_reentry', 'premature_exit'] as const;
+export type PatternType = (typeof VALID_PATTERN_TYPES)[number];
+
 export type SubscriptionTier = 'free' | 'paid';
 
 export interface SubscriptionInfo {
