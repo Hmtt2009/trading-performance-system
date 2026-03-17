@@ -489,16 +489,16 @@ export function parseIBKRExecutions(
 
 /**
  * Group raw executions into logical trades.
- * Same symbol, same day → match buys to sells chronologically.
+ * Groups by symbol only (not date) so that multi-day round-trips
+ * (e.g. buy Monday, sell Tuesday) are properly matched.
  * Handles partial fills and scaling in/out.
  */
 function groupExecutionsIntoTrades(executions: RawExecution[]): ParsedTrade[] {
-  // Group by symbol + date
+  // Group by symbol only — allows cross-day round-trip matching
   const groups = new Map<string, RawExecution[]>();
 
   for (const exec of executions) {
-    const dateStr = exec.dateTime.toISOString().split('T')[0];
-    const key = `${exec.symbol}|${dateStr}`;
+    const key = exec.symbol;
     const group = groups.get(key) || [];
     group.push(exec);
     groups.set(key, group);
