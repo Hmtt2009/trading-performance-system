@@ -258,7 +258,7 @@ function splitIntoRoundTrips(executions: RawExecution[]): RawExecution[][] {
     current.push(exec);
     position += signedQty;
 
-    if (position === 0 && current.length >= 2) {
+    if (Math.abs(position) < 0.0001 && current.length >= 2) {
       roundTrips.push(current);
       current = [];
     }
