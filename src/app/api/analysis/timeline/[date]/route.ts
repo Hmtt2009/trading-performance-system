@@ -20,7 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { data: patterns } = tradeIds.length > 0 ? await supabase.from('pattern_detections').select('*').eq('user_id', user.id).in('trigger_trade_id', tradeIds) : { data: [] };
     const { data: session } = await supabase.from('trading_sessions').select('*').eq('user_id', user.id).eq('session_date', date).maybeSingle();
 
-    const patternsByTradeId = new Map<string, typeof patterns>();
+    type PatternRow = Record<string, unknown>;
+    const patternsByTradeId = new Map<string, PatternRow[]>();
     for (const pattern of patterns || []) {
       const linkedTradeIds = new Set<string>();
       if (pattern.trigger_trade_id) linkedTradeIds.add(pattern.trigger_trade_id);
