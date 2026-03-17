@@ -187,50 +187,52 @@ export async function POST(request: NextRequest) {
       brokerAccountId = newAccount.id;
     }
 
-    // Insert trades
-    const insertedTrades: { id: string; trade: ParsedTrade }[] = [];
+    // Batch insert trades (upsert with ignoreDuplicates for dedup)
+    const tradeRows = parseResult.trades.map((trade) => ({
+      user_id: user.id,
+      broker_account_id: brokerAccountId,
+      file_upload_id: uploadRecord.id,
+      symbol: trade.symbol,
+      asset_type: 'stock',
+      direction: trade.direction,
+      entry_time: trade.entryTime.toISOString(),
+      exit_time: trade.exitTime?.toISOString() || null,
+      entry_price: trade.entryPrice,
+      exit_price: trade.exitPrice,
+      quantity: trade.quantity,
+      total_commission: trade.totalCommission,
+      gross_pnl: trade.grossPnl,
+      net_pnl: trade.netPnl,
+      pnl_percent: trade.pnlPercent,
+      hold_time_minutes: trade.holdTimeMinutes,
+      position_value: trade.positionValue,
+      is_open: trade.isOpen,
+      execution_hash: trade.executionHash,
+    }));
+
+    let insertedTrades: { id: string; trade: ParsedTrade }[] = [];
     let duplicatesSkipped = 0;
     let failedInserts = 0;
 
-    for (const trade of parseResult.trades) {
-      const { data: insertedTrade, error: tradeError } = await supabase
-        .from('trades')
-        .insert({
-          user_id: user.id,
-          broker_account_id: brokerAccountId,
-          file_upload_id: uploadRecord.id,
-          symbol: trade.symbol,
-          asset_type: 'stock',
-          direction: trade.direction,
-          entry_time: trade.entryTime.toISOString(),
-          exit_time: trade.exitTime?.toISOString() || null,
-          entry_price: trade.entryPrice,
-          exit_price: trade.exitPrice,
-          quantity: trade.quantity,
-          total_commission: trade.totalCommission,
-          gross_pnl: trade.grossPnl,
-          net_pnl: trade.netPnl,
-          pnl_percent: trade.pnlPercent,
-          hold_time_minutes: trade.holdTimeMinutes,
-          position_value: trade.positionValue,
-          is_open: trade.isOpen,
-          execution_hash: trade.executionHash,
-        })
-        .select()
-        .single();
+    const { data: batchResult, error: batchError } = await supabase
+      .from('trades')
+      .upsert(tradeRows, { onConflict: 'execution_hash', ignoreDuplicates: true })
+      .select();
 
-      if (tradeError) {
-        // Likely duplicate hash conflict — skip
-        if (tradeError.code === '23505') {
+    if (batchError) {
+      console.error('Batch trade insert failed:', batchError);
+      failedInserts = parseResult.trades.length;
+    } else {
+      // Map inserted rows back to parsed trades via execution_hash
+      const insertedByHash = new Map((batchResult || []).map((r) => [r.execution_hash, r.id]));
+      for (const trade of parseResult.trades) {
+        const dbId = insertedByHash.get(trade.executionHash);
+        if (dbId) {
+          insertedTrades.push({ id: dbId, trade });
+        } else {
           duplicatesSkipped++;
-          continue;
         }
-        console.error('Failed to insert trade:', tradeError);
-        failedInserts++;
-        continue;
       }
-
-      insertedTrades.push({ id: insertedTrade.id, trade });
     }
 
     // Batch insert all executions in a single DB call
@@ -277,12 +279,17 @@ export async function POST(request: NextRequest) {
     let enrichmentErrors = 0;
 
     // Compute/update baseline and sessions
-    const { data: allUserTrades } = await supabase
+    const TRADE_LIMIT = 10000;
+    const { data: allUserTrades, count: totalTradeCount } = await supabase
       .from('trades')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', user.id)
       .order('entry_time', { ascending: true })
-      .limit(10000);
+      .limit(TRADE_LIMIT);
+
+    if ((totalTradeCount ?? 0) > TRADE_LIMIT) {
+      console.error(`User ${user.id} has ${totalTradeCount} trades, exceeding ${TRADE_LIMIT} limit. Baseline may be inaccurate.`);
+    }
 
     if (allUserTrades && allUserTrades.length > 0) {
       // Convert DB trades to ParsedTrade format for analysis
@@ -379,6 +386,18 @@ export async function POST(request: NextRequest) {
               (t) => t.execution_hash === triggerTrade?.executionHash
             );
 
+            // Resolve involved trade indices to DB IDs
+            const involvedTradeIds = (pattern.involvedTradeIndices || [])
+              .map((idx) => {
+                const involved = dayTrades[idx];
+                if (!involved) return null;
+                const dbTrade = allUserTrades.find(
+                  (t) => t.execution_hash === involved.executionHash
+                );
+                return dbTrade?.id || null;
+              })
+              .filter(Boolean) as string[];
+
             const { error: patternError } = await supabase.from('pattern_detections').insert({
               user_id: user.id,
               session_id: sessionRecord.id,
@@ -386,7 +405,7 @@ export async function POST(request: NextRequest) {
               confidence: pattern.confidence,
               severity: pattern.severity,
               trigger_trade_id: triggerDbTrade?.id || null,
-              involved_trade_ids: [],
+              involved_trade_ids: involvedTradeIds,
               dollar_impact: pattern.dollarImpact,
               description: pattern.description,
               detection_data: pattern.detectionData,
