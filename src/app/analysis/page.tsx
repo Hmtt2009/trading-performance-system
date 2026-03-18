@@ -8,6 +8,13 @@ import { CostOfBehaviorView } from '@/components/cost/CostOfBehaviorView';
 import { SessionTimeline } from '@/components/timeline/SessionTimeline';
 import { DebriefView } from '@/components/debrief/DebriefView';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+
+interface FeatureAccess {
+  aiDebrief: boolean;
+  weeklyReview: boolean;
+  maxPatterns: number;
+}
 
 const TABS = [
   { key: 'patterns', label: 'Patterns' },
@@ -136,12 +143,26 @@ function DebriefTab() {
   );
 }
 
+const PAID_TABS: TabKey[] = ['scorecard', 'cost', 'debrief'];
+
 function AnalysisContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawTab = searchParams.get('tab');
   const activeTab = TABS.some(t => t.key === rawTab) ? (rawTab as TabKey) : 'patterns';
   const setTab = (tab: TabKey) => { router.push(`/analysis?tab=${tab}`); };
+
+  const [access, setAccess] = useState<FeatureAccess | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/profile')
+      .then(res => res.ok ? res.json() : null)
+      .then(json => { if (json?.access) setAccess(json.access); })
+      .catch(() => {});
+  }, []);
+
+  const isPaidTab = (tab: TabKey) => PAID_TABS.includes(tab);
+  const isLocked = (tab: TabKey) => isPaidTab(tab) && access !== null && !access.aiDebrief;
 
   return (
     <div className="space-y-5">
@@ -153,13 +174,18 @@ function AnalysisContent() {
           <button
             key={tab.key}
             onClick={() => setTab(tab.key)}
-            className={`px-4 py-2 text-xs font-mono font-bold whitespace-nowrap rounded transition-colors ${
+            className={`px-4 py-2 text-xs font-mono font-bold whitespace-nowrap rounded transition-colors flex items-center gap-1.5 ${
               activeTab === tab.key
                 ? 'bg-panel text-green border border-green/20'
                 : 'text-muted hover:text-foreground border border-transparent'
             }`}
           >
             {tab.label}
+            {isLocked(tab.key) && (
+              <svg className="w-3 h-3 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            )}
           </button>
         ))}
       </div>
@@ -167,10 +193,10 @@ function AnalysisContent() {
       {/* Tab content */}
       <div>
         {activeTab === 'patterns' && <PatternsTab />}
-        {activeTab === 'scorecard' && <ScorecardView />}
-        {activeTab === 'cost' && <CostOfBehaviorView />}
+        {activeTab === 'scorecard' && (isLocked('scorecard') ? <UpgradePrompt feature="Scorecard" /> : <ScorecardView />)}
+        {activeTab === 'cost' && (isLocked('cost') ? <UpgradePrompt feature="Cost of Behavior Analysis" /> : <CostOfBehaviorView />)}
         {activeTab === 'timeline' && <TimelineTab />}
-        {activeTab === 'debrief' && <DebriefTab />}
+        {activeTab === 'debrief' && (isLocked('debrief') ? <UpgradePrompt feature="AI Debrief" /> : <DebriefTab />)}
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
 
 interface WeekData {
   weekStart: string;
@@ -65,10 +67,26 @@ function MetricCard({ label, value, subtext, delta }: {
 }
 
 export default function WeeklyReviewPage() {
+  return (
+    <AuthGuard>
+      <WeeklyReviewContent />
+    </AuthGuard>
+  );
+}
+
+function WeeklyReviewContent() {
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/profile')
+      .then(res => res.ok ? res.json() : null)
+      .then(json => { setHasAccess(json?.access?.weeklyReview ?? null); })
+      .catch(() => {});
+  }, []);
 
   const fetchWeeks = useCallback(async () => {
     setLoading(true);
@@ -87,6 +105,15 @@ export default function WeeklyReviewPage() {
   }, []);
 
   useEffect(() => { fetchWeeks(); }, [fetchWeeks]);
+
+  if (hasAccess === false) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <h1 className="font-display text-3xl tracking-wide mb-4">WEEKLY REVIEW</h1>
+        <UpgradePrompt feature="Weekly Review" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -102,6 +102,22 @@ export function NavHeader() {
         })}
       </nav>
 
+      {/* Profile link */}
+      <Link
+        href="/profile"
+        className={`flex flex-col items-center justify-center w-12 h-12 rounded transition-colors group mb-1 ${
+          pathname === '/profile'
+            ? 'text-green bg-green/8'
+            : 'text-muted hover:text-foreground hover:bg-card-hover'
+        }`}
+        title="Profile"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+        </svg>
+        <span className="text-[9px] mt-0.5 font-medium tracking-wide">Profile</span>
+      </Link>
+
       {/* Logout button */}
       <button
         onClick={handleLogout}
