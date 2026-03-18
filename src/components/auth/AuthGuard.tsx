@@ -10,22 +10,25 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const checkAuth = async () => {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        if (!isMounted) return;
         if (!user) {
           router.replace('/login');
           return;
         }
         setAuthenticated(true);
       } catch {
-        router.replace('/login');
+        if (isMounted) router.replace('/login');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     checkAuth();
+    return () => { isMounted = false; };
   }, [router]);
 
   if (loading) {
