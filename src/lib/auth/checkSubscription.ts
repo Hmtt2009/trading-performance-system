@@ -18,10 +18,12 @@ export async function getSubscription(userId: string): Promise<SubscriptionInfo>
     .eq('id', userId)
     .single();
 
-  return {
-    tier: (data?.subscription_tier as SubscriptionTier) ?? 'free',
-    status: data?.subscription_status ?? 'active',
-  };
+  const tier = data?.subscription_tier === 'paid' ? 'paid' : 'free';
+  const status = ['active', 'canceled', 'past_due'].includes(data?.subscription_status)
+    ? (data.subscription_status as SubscriptionInfo['status'])
+    : 'active';
+
+  return { tier, status };
 }
 
 export interface FeatureAccess {
