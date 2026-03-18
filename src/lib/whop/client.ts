@@ -13,11 +13,8 @@ export function getWhopClient(): Whop {
     throw new Error('WHOP_WEBHOOK_SECRET is required in production');
   }
 
-  // SDK requires "Bearer " prefix on the API key
-  const formattedKey = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
-
   whopClient = new Whop({
-    apiKey: formattedKey,
+    apiKey,
     webhookKey: webhookSecret ?? null,
   });
 
