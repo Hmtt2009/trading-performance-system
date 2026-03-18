@@ -93,11 +93,11 @@ export default function PricingPage() {
             style={{ boxShadow: '0 0 30px rgba(0, 232, 122, 0.08)' }}
           >
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#070709] border border-[#00e87a]/30 rounded text-[10px] font-mono text-[#00e87a] tracking-wider whitespace-nowrap">
-              14-DAY FREE TRIAL &middot; NO CREDIT CARD
+              7-DAY FREE TRIAL &middot; NO CREDIT CARD
             </div>
             <h2 className="font-display text-3xl tracking-wide mb-1 text-[#00e87a]">PRO</h2>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className="font-mono text-4xl font-bold text-[#e0e0e8]">$29</span>
+              <span className="font-mono text-4xl font-bold text-[#e0e0e8]">$19</span>
               <span className="text-sm text-[#6b6b78] font-mono">/mo</span>
             </div>
             <ul className="space-y-3 mb-8 flex-1">
