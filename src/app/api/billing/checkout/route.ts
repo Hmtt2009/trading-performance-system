@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
-import { getWhopClient } from '@/lib/whop/client';
 
 /**
  * POST /api/billing/checkout
- * Creates a Whop checkout configuration and returns the checkout URL.
+ * Returns the Whop checkout URL for the configured plan.
  */
 export async function POST() {
   try {
@@ -21,8 +20,6 @@ export async function POST() {
       );
     }
 
-    const whop = getWhopClient();
-
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!appUrl) {
       return NextResponse.json(
@@ -30,26 +27,11 @@ export async function POST() {
         { status: 503 }
       );
     }
-    const returnUrl = `${appUrl}/dashboard?checkout=success`;
 
-    // Create checkout using plan_id variant (no company_id needed)
-    const checkout = await whop.checkoutConfigurations.create({
-      plan_id: planId,
-      redirect_url: returnUrl,
-      metadata: {
-        supabase_user_id: user.id,
-        email: user.email || '',
-      },
-    });
+    const redirectUrl = encodeURIComponent(`${appUrl}/dashboard?checkout=success`);
 
-    const checkoutUrl = checkout.purchase_url;
-
-    if (!checkoutUrl) {
-      return NextResponse.json(
-        { error: 'Failed to create checkout session' },
-        { status: 500 }
-      );
-    }
+    // Build Whop checkout URL directly — more reliable than SDK checkout config creation
+    const checkoutUrl = `https://whop.com/checkout/${planId}/?d_metadata_supabase_user_id=${user.id}&d_metadata_email=${encodeURIComponent(user.email || '')}&redirect_url=${redirectUrl}`;
 
     return NextResponse.json({ url: checkoutUrl });
   } catch (err: unknown) {
