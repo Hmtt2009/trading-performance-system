@@ -6,6 +6,8 @@ function truncateId(id: string | undefined | null): string {
   return id.length > 8 ? `${id.slice(0, 8)}...` : id;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Whop webhook handler.
  * Processes membership and payment events to keep user subscription status in sync.
@@ -27,13 +29,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     switch (event.type) {
       case 'membership.activated': {
         const membership = event.data;
+        if (!membership || typeof membership !== 'object') {
+          console.error('Invalid membership data in activated event');
+          dbError = true;
+          break;
+        }
         const whopUserId = membership.user?.id;
-        if (!whopUserId) break;
+        if (!whopUserId || typeof whopUserId !== 'string') break;
 
         // Try metadata-based lookup first (initial activation from checkout)
         const rawMetadata = membership.metadata as Record<string, unknown> | null | undefined;
         const supabaseUserId =
-          typeof rawMetadata?.supabase_user_id === 'string'
+          typeof rawMetadata?.supabase_user_id === 'string' && UUID_REGEX.test(rawMetadata.supabase_user_id)
             ? rawMetadata.supabase_user_id
             : undefined;
 
@@ -79,8 +86,13 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       case 'membership.deactivated': {
         const membership = event.data;
+        if (!membership || typeof membership !== 'object') {
+          console.error('Invalid membership data in deactivated event');
+          dbError = true;
+          break;
+        }
         const whopUserId = membership.user?.id;
-        if (!whopUserId) break;
+        if (!whopUserId || typeof whopUserId !== 'string') break;
 
         // Keep whop_membership_id for audit trail and payment.failed lookups
         const { data: deactivateData, error: deactivateError } = await supabase
