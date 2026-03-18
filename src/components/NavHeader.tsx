@@ -57,8 +57,12 @@ export function NavHeader() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Sign out failed — redirect to login regardless
+    }
     router.push('/login');
     router.refresh();
   };
