@@ -20,7 +20,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionInfo>
 
   const tier = data?.subscription_tier === 'paid' ? 'paid' : 'free';
   const status = ['active', 'canceled', 'past_due'].includes(data?.subscription_status)
-    ? (data.subscription_status as SubscriptionInfo['status'])
+    ? (data!.subscription_status as SubscriptionInfo['status'])
     : 'active';
 
   return { tier, status };
