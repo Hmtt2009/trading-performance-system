@@ -19,7 +19,9 @@ interface UploadResult {
     skippedRows: number;
     errorRows: number;
     optionsSkipped: number;
+    skippedOptionsData?: { symbol: string }[];
   };
+  optionsSkipped?: number;
   warning?: string;
   optionsMessage?: string;
 }
@@ -354,8 +356,25 @@ export function FileUpload() {
           {result.warning && (
             <div className="p-3 rounded bg-amber-bg border border-amber/20 text-amber text-xs font-mono">{result.warning}</div>
           )}
-          {result.optionsMessage && (
-            <div className="p-3 rounded bg-blue-bg border border-blue/20 text-blue text-xs font-mono">{result.optionsMessage}</div>
+          {(result.optionsSkipped ?? result.metadata?.optionsSkipped ?? 0) > 0 && (
+            <div className="p-3 rounded bg-blue-bg border border-blue/20">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-blue mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-blue text-xs font-mono font-bold">
+                    {result.tradesImported} stock trade{result.tradesImported !== 1 ? 's' : ''} imported
+                  </p>
+                  <p className="text-blue/80 text-xs font-mono mt-1">
+                    {result.optionsSkipped ?? result.metadata?.optionsSkipped ?? 0} options trade{(result.optionsSkipped ?? result.metadata?.optionsSkipped ?? 0) !== 1 ? 's' : ''} skipped
+                  </p>
+                  <p className="text-blue/60 text-[10px] font-mono mt-1">
+                    Options analysis coming in a future update
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
 
           {result.errors.length > 0 && (

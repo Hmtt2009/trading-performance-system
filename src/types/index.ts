@@ -28,6 +28,7 @@ export interface ParseResult {
     skippedRows: number;
     errorRows: number;
     optionsSkipped: number;
+    skippedOptionsData?: SkippedOption[];
   };
 }
 
@@ -54,6 +55,16 @@ export interface ParseError {
   row: number;
   message: string;
   rawData?: string;
+}
+
+export interface SkippedOption {
+  symbol: string;
+  dateTime: Date;
+  side: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  commission: number;
+  rawRow: Record<string, string>;
 }
 
 // Analysis types

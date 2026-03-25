@@ -1,6 +1,6 @@
 import { parse } from 'csv-parse/sync';
 import { createHash } from 'crypto';
-import type { RawExecution, ParsedTrade, ParseError, ParseResult } from '@/types';
+import type { RawExecution, ParsedTrade, ParseError, ParseResult, SkippedOption } from '@/types';
 
 // IBKR Flex Query column name mappings (handles variations)
 const COLUMN_MAP: Record<string, string[]> = {
@@ -259,6 +259,7 @@ export function parseIBKRExecutions(
   const executions: RawExecution[] = [];
   const duplicateHashes: string[] = [];
   let optionsSkipped = 0;
+  const skippedOptionsData: SkippedOption[] = [];
 
   // Split into lines to find the trade data section
   const allLines = csvContent.split(/\r?\n/);
@@ -391,6 +392,36 @@ export function parseIBKRExecutions(
       if (asset === 'OPT' || asset === 'FOP' || asset === 'FUT' || asset === 'OPTION' || asset === 'OPTIONS') {
         optionsSkipped++;
         skippedRows++;
+
+        // Collect skipped options data for future analysis
+        const optSymbol = cols.symbol ? row[cols.symbol]?.trim() : null;
+        const optDateTime = parseDateTime(row, cols);
+        let optSide: 'buy' | 'sell' | null = null;
+        if (cols.side && row[cols.side]) {
+          optSide = parseSide(row[cols.side]);
+        }
+        if (!optSide) {
+          const rawQty = parseFloat(row[cols.quantity!] || '0');
+          optSide = rawQty >= 0 ? 'buy' : 'sell';
+        }
+        const optQty = Math.abs(parseFloat(row[cols.quantity!] || '0'));
+        const optPrice = parseFloat(row[cols.price!] || '0');
+        const optComm = Math.abs(parseFloat(
+          (cols.commission && row[cols.commission]) || '0'
+        ));
+
+        if (optSymbol && optDateTime) {
+          skippedOptionsData.push({
+            symbol: optSymbol,
+            dateTime: optDateTime,
+            side: optSide,
+            quantity: optQty,
+            price: optPrice,
+            commission: optComm,
+            rawRow: row,
+          });
+        }
+
         continue;
       }
       // Allow STK, STOCK, or empty (assume stock)
@@ -483,6 +514,7 @@ export function parseIBKRExecutions(
       skippedRows,
       errorRows: errors.length,
       optionsSkipped,
+      skippedOptionsData: skippedOptionsData.length > 0 ? skippedOptionsData : undefined,
     },
   };
 }
