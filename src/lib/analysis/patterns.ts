@@ -36,6 +36,17 @@ export function detectPatterns(
   patterns.push(...detectRapidReentry(sorted, baseline));
   patterns.push(...detectPrematureExit(sorted, baseline));
 
+  // Reduce confidence for time-dependent patterns when timestamps are estimated
+  const hasEstimatedTimes = trades.some(t => t.isEstimatedTime);
+  if (hasEstimatedTimes) {
+    for (const pattern of patterns) {
+      if (pattern.patternType === 'rapid_reentry' || pattern.patternType === 'premature_exit') {
+        pattern.confidence = 'medium';
+        pattern.description += ' (Confidence reduced — exact execution times unavailable from your broker)';
+      }
+    }
+  }
+
   // Remap all indices from sorted-space to original trades-space
   for (const p of patterns) {
     p.triggerTradeIndex = sortedToOriginal[p.triggerTradeIndex] ?? p.triggerTradeIndex;
