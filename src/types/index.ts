@@ -48,6 +48,7 @@ export interface ParsedTrade {
   isOpen: boolean;
   executionHash: string;
   executions: RawExecution[];
+  isEstimatedTime?: boolean;
 }
 
 export interface ParseError {
