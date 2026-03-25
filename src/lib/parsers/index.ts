@@ -3,6 +3,9 @@ import { parseSchwabCSV } from './schwab';
 import { parseTDAmeritradeCSV } from './tdameritrade';
 import { parseWebullCSV } from './webull';
 import { classifyParseError } from './error-classifier';
+import { detectColumns } from './universal-column-detector';
+import { parseWithMapping } from './manual-parser';
+import type { ColumnMapping } from './manual-parser';
 import type { ParseResult } from '@/types';
 
 type BrokerType = 'ibkr' | 'schwab' | 'tdameritrade' | 'webull' | 'unknown';
@@ -65,6 +68,39 @@ export function parseTradeCSV(
   const broker = detectBroker(csvContent);
 
   if (broker === 'unknown') {
+    // Try universal column detection before giving up
+    const detection = detectColumns(csvContent);
+    if (detection.confidence >= 60) {
+      const mapping: ColumnMapping = {
+        symbol: detection.mapping.symbol,
+        dateTime: detection.mapping.dateTime,
+        side: detection.mapping.side,
+        quantity: detection.mapping.quantity,
+        price: detection.mapping.price,
+        commission: detection.mapping.commission,
+        proceeds: detection.mapping.proceeds,
+        currency: detection.mapping.currency,
+        accountId: detection.mapping.accountId,
+        assetCategory: detection.mapping.assetCategory,
+      };
+
+      // Check if there's a separate time column in the unmapped headers
+      const timeAliases = ['Execution Time', 'Trade Time', 'Time', 'Exec Time'];
+      const timeColumn = detection.unmappedHeaders.find((h) =>
+        timeAliases.some((alias) => h.toLowerCase() === alias.toLowerCase())
+      );
+
+      const result = parseWithMapping(
+        csvContent,
+        mapping,
+        detection.headerRow,
+        existingHashes,
+        timeColumn ? { timeColumn } : undefined
+      );
+      result.metadata.brokerFormat = 'universal';
+      return result;
+    }
+
     const classification = classifyParseError(csvContent);
     return {
       executions: [],

@@ -507,6 +507,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Store skipped options data in DB for future analysis
+    if (parseResult.metadata.skippedOptionsData?.length) {
+      const optionsRows = parseResult.metadata.skippedOptionsData.map(opt => ({
+        user_id: user.id,
+        upload_id: uploadRecord.id,
+        symbol: opt.symbol,
+        executed_at: opt.dateTime.toISOString(),
+        side: opt.side,
+        quantity: opt.quantity,
+        price: opt.price,
+        commission: opt.commission,
+        raw_data: opt.rawRow,
+      }));
+
+      const { error: optionsError } = await supabase.from('skipped_options').insert(optionsRows);
+      if (optionsError) {
+        console.error('Failed to insert skipped options:', optionsError);
+      }
+    }
+
     // Warning for high error rate
     const errorRate =
       parseResult.metadata.totalRows > 0
@@ -521,6 +541,8 @@ export async function POST(request: NextRequest) {
       enrichmentErrors,
       errors: parseResult.errors,
       metadata: parseResult.metadata,
+      optionsSkipped: parseResult.metadata.optionsSkipped,
+      optionsData: parseResult.metadata.skippedOptionsData || [],
       warning:
         errorRate > 0.1
           ? `${Math.round(errorRate * 100)}% of rows had errors. Some trades may be missing.`

@@ -25,7 +25,8 @@ export function parseWithMapping(
   csvContent: string,
   mapping: ColumnMapping,
   headerRowIndex: number,
-  existingHashes: Set<string>
+  existingHashes: Set<string>,
+  options?: { timeColumn?: string }
 ): ParseResult {
   const errors: ParseError[] = [];
   const executions: RawExecution[] = [];
@@ -54,6 +55,7 @@ export function parseWithMapping(
   const currencyIdx = colIndex(mapping.currency);
   const accountIdx = colIndex(mapping.accountId);
   const assetCatIdx = colIndex(mapping.assetCategory);
+  const timeIdx = options?.timeColumn ? colIndex(options.timeColumn) : -1;
 
   // Validate required columns
   if (symbolIdx === -1) {
@@ -86,7 +88,11 @@ export function parseWithMapping(
     }
 
     // --- Date/Time ---
-    const dateStr = cols[dateTimeIdx]?.trim();
+    let dateStr = cols[dateTimeIdx]?.trim();
+    // If a separate time column exists, combine date + time
+    if (timeIdx >= 0 && cols[timeIdx]?.trim()) {
+      dateStr = `${dateStr} ${cols[timeIdx].trim()}`;
+    }
     const dateTime = parseFlexibleDate(dateStr);
     if (!dateTime) {
       errors.push({ row: rowNum, message: `Invalid date: ${dateStr}` });
@@ -249,8 +255,8 @@ function convertTo24h(time: string): string {
 
 // ── Side parsing ──
 
-const BUY_KEYWORDS = new Set(['BUY', 'BOUGHT', 'BOT', 'B', 'LONG']);
-const SELL_KEYWORDS = new Set(['SELL', 'SOLD', 'SLD', 'S', 'SHORT', 'SHRT']);
+const BUY_KEYWORDS = new Set(['BUY', 'BOUGHT', 'BOT', 'B', 'LONG', 'PURCHASE']);
+const SELL_KEYWORDS = new Set(['SELL', 'SOLD', 'SLD', 'S', 'SHORT', 'SHRT', 'SALE']);
 
 function parseSide(raw: string): 'buy' | 'sell' | null {
   const upper = raw.toUpperCase().trim();
