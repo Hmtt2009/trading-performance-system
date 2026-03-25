@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ColumnMapper } from './ColumnMapper';
+import type { ColumnMapping } from './ColumnMapper';
 
 interface UploadResult {
   uploadId: string;
@@ -22,6 +24,51 @@ interface UploadResult {
   optionsMessage?: string;
 }
 
+interface ColumnMapperState {
+  headers: string[];
+  previewRows: string[][];
+}
+
+/**
+ * Parse raw CSV text into headers + first 5 data rows for the ColumnMapper preview.
+ */
+function extractCSVPreview(csvContent: string): ColumnMapperState {
+  const lines = csvContent.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return { headers: [], previewRows: [] };
+
+  const parseLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result;
+  };
+
+  const headers = parseLine(lines[0]).map((h) => h.trim());
+  const previewRows: string[][] = [];
+  for (let i = 1; i < Math.min(lines.length, 6); i++) {
+    previewRows.push(parseLine(lines[i]));
+  }
+
+  return { headers, previewRows };
+}
+
 export function FileUpload() {
   const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
@@ -31,6 +78,11 @@ export function FileUpload() {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [hasExistingTrades, setHasExistingTrades] = useState(false);
+
+  // Column mapping state
+  const [mappingMode, setMappingMode] = useState(false);
+  const [mapperData, setMapperData] = useState<ColumnMapperState | null>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
   useEffect(() => {
     fetch('/api/trades?limit=1')
@@ -51,6 +103,8 @@ export function FileUpload() {
     setUploading(true);
     setError(null);
     setResult(null);
+    setMappingMode(false);
+    setMapperData(null);
     setProgress(10);
 
     try {
@@ -61,7 +115,25 @@ export function FileUpload() {
       setProgress(80);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Upload failed. Please check your file format.');
+        const errMsg: string = data.error || '';
+        // Check if this is an unrecognized format error -- offer manual mapping
+        if (
+          errMsg.includes('Unrecognized broker format') ||
+          errMsg.includes('Unsupported broker format')
+        ) {
+          // Read the file to extract headers and preview rows
+          const csvContent = await file.text();
+          const preview = extractCSVPreview(csvContent);
+          if (preview.headers.length > 0) {
+            pendingFileRef.current = file;
+            setMapperData(preview);
+            setMappingMode(true);
+            setError(null);
+            setProgress(0);
+            return;
+          }
+        }
+        setError(errMsg || 'Upload failed. Please check your file format.');
         setProgress(0);
         return;
       }
@@ -75,11 +147,77 @@ export function FileUpload() {
     }
   }, []);
 
+  const handleMappingConfirm = useCallback(async (mapping: ColumnMapping, formatName?: string) => {
+    const file = pendingFileRef.current;
+    if (!file) {
+      setError('File reference lost. Please re-upload.');
+      setMappingMode(false);
+      return;
+    }
+
+    setUploading(true);
+    setMappingMode(false);
+    setError(null);
+    setProgress(10);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mapping', JSON.stringify(mapping));
+      if (formatName) {
+        formData.append('formatName', formatName);
+      }
+      setProgress(30);
+
+      const res = await fetch('/api/upload/with-mapping', {
+        method: 'POST',
+        body: formData,
+      });
+      setProgress(80);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Upload failed with the provided column mapping.');
+        setProgress(0);
+        return;
+      }
+      setProgress(100);
+      setResult(data);
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+      setProgress(0);
+    } finally {
+      setUploading(false);
+      pendingFileRef.current = null;
+    }
+  }, []);
+
+  const handleMappingCancel = useCallback(() => {
+    setMappingMode(false);
+    setMapperData(null);
+    pendingFileRef.current = null;
+    setError(null);
+    setFileName(null);
+  }, []);
+
   const onDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
   const onDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
   const onDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }, [handleFile]);
   const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) handleFile(file); }, [handleFile]);
-  const reset = useCallback(() => { setResult(null); setError(null); setFileName(null); setProgress(0); }, []);
+  const reset = useCallback(() => { setResult(null); setError(null); setFileName(null); setProgress(0); setMappingMode(false); setMapperData(null); pendingFileRef.current = null; }, []);
+
+  // Show column mapper when in mapping mode
+  if (mappingMode && mapperData) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <ColumnMapper
+          headers={mapperData.headers}
+          previewRows={mapperData.previewRows}
+          onConfirm={handleMappingConfirm}
+          onCancel={handleMappingCancel}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -119,7 +257,7 @@ export function FileUpload() {
           {fileName ? fileName : 'Drop your CSV file here'}
         </p>
         <p className="text-sm text-muted font-mono">
-          or click to browse. Supports IBKR, Schwab, TD Ameritrade, and Webull exports.
+          or click to browse. Supports IBKR, Schwab, TD Ameritrade, Webull, and custom CSV exports.
         </p>
       </div>
 
