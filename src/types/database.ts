@@ -162,3 +162,26 @@ export interface AiDebrief {
   created_at: string;
   updated_at: string;
 }
+
+export interface BrokerFormat {
+  id: string;
+  created_by: string | null;
+  format_name: string;
+  format_fingerprint: string;
+  column_symbol: string;
+  column_datetime: string;
+  column_side: string | null;
+  column_quantity: string;
+  column_price: string;
+  column_commission: string | null;
+  column_proceeds: string | null;
+  column_currency: string | null;
+  column_account: string | null;
+  column_asset_category: string | null;
+  header_row_index: number;
+  sample_headers: string[];
+  times_used: number;
+  confidence_score: number;
+  created_at: string;
+  updated_at: string;
+}
