@@ -97,3 +97,5 @@ export { parseIBKRExecutions } from './ibkr-parser';
 export { parseSchwabCSV } from './schwab';
 export { parseTDAmeritradeCSV } from './tdameritrade';
 export { parseWebullCSV } from './webull';
+export { parseWithMapping, extractCSVPreview } from './manual-parser';
+export type { ColumnMapping } from './manual-parser';
