@@ -33,7 +33,7 @@ CREATE TABLE public.broker_formats (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_broker_formats_fingerprint ON public.broker_formats(format_fingerprint);
+-- format_fingerprint already has a UNIQUE constraint (implicit index)
 CREATE INDEX idx_broker_formats_times_used ON public.broker_formats(times_used DESC);
 
 -- Updated_at trigger (reuses function from initial migration)
@@ -52,9 +52,9 @@ CREATE POLICY broker_formats_select ON public.broker_formats
 CREATE POLICY broker_formats_insert ON public.broker_formats
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- Only the creator can update their own formats
+-- Any authenticated user can update (shared knowledge, e.g. incrementing times_used)
 CREATE POLICY broker_formats_update ON public.broker_formats
-  FOR UPDATE USING (auth.uid() = created_by);
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 -- Only the creator can delete their own formats
 CREATE POLICY broker_formats_delete ON public.broker_formats

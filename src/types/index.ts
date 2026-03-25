@@ -139,11 +139,11 @@ export interface ScoreEntry {
 // Broker format auto-learning types
 
 export interface ColumnMapping {
-  symbol: string | null;
-  dateTime: string | null;
+  symbol: string;
+  dateTime: string;
   side: string | null;
-  quantity: string | null;
-  price: string | null;
+  quantity: string;
+  price: string;
   commission: string | null;
   proceeds: string | null;
   currency: string | null;

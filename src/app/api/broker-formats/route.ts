@@ -16,7 +16,8 @@ export async function GET() {
     const { data: formats, error } = await supabase
       .from('broker_formats')
       .select('*')
-      .order('times_used', { ascending: false });
+      .order('times_used', { ascending: false })
+      .limit(200);
 
     if (error) {
       console.error('Failed to fetch broker formats:', error);
@@ -52,8 +53,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Validate required fields
-    if (!formatName || typeof formatName !== 'string' || formatName.trim().length === 0) {
-      return NextResponse.json({ error: 'formatName is required' }, { status: 400 });
+    if (!formatName || typeof formatName !== 'string' || formatName.trim().length === 0 || formatName.trim().length > 255) {
+      return NextResponse.json({ error: 'formatName is required and must be under 255 characters' }, { status: 400 });
     }
     if (!mapping || typeof mapping !== 'object') {
       return NextResponse.json({ error: 'mapping is required' }, { status: 400 });
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         times_used: existing.times_used + 1,
       };
 
-      if (newConfidence > existing.confidence_score) {
+      if (newConfidence >= existing.confidence_score) {
         updateFields.column_symbol = mapping.symbol;
         updateFields.column_datetime = mapping.dateTime;
         updateFields.column_side = mapping.side;
