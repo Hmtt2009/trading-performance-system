@@ -19,7 +19,11 @@ interface UploadResult {
     skippedRows: number;
     errorRows: number;
     optionsSkipped: number;
+
+    hasEstimatedTimes?: boolean;
+
     skippedOptionsData?: { symbol: string }[];
+
   };
   optionsSkipped?: number;
   warning?: string;
@@ -374,6 +378,11 @@ export function FileUpload() {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+          {result.metadata?.hasEstimatedTimes && (
+            <div className="p-3 rounded bg-amber-900/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
+              &#9201; Hold times are estimated &mdash; your broker doesn&apos;t export exact execution times
             </div>
           )}
 

@@ -28,7 +28,11 @@ export interface ParseResult {
     skippedRows: number;
     errorRows: number;
     optionsSkipped: number;
+
+    hasEstimatedTimes?: boolean;
+
     skippedOptionsData?: SkippedOption[];
+
   };
 }
 
