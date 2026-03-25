@@ -320,6 +320,7 @@ describe('parseTradeCSV', () => {
   it('should return error for unknown broker', () => {
     const result = parseTradeCSV('name,age\nJohn,30');
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].message).toContain('Unrecognized broker format');
+    // Error classifier provides a specific message instead of the generic one
+    expect(result.errors[0].message).toContain("couldn't identify trade columns");
   });
 });
