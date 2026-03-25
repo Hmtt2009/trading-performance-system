@@ -5,7 +5,7 @@ import { NavHeader } from '@/components/NavHeader';
 import { TickerTape } from '@/components/TickerTape';
 
 const AUTH_ROUTES = ['/login', '/signup', '/auth'];
-const MARKETING_ROUTES = ['/pricing', '/about', '/guide'];
+const MARKETING_ROUTES = ['/pricing', '/about', '/guide', '/privacy', '/terms'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

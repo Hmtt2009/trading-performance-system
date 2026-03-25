@@ -234,10 +234,20 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-[#1c1c22] text-center">
-        <p className="text-xs text-[#6b6b78] font-mono">
-          Flinch &mdash; Built for traders who want the truth.
-        </p>
+      <footer className="px-6 py-8 border-t border-[#1c1c22]">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
+          <p className="text-xs text-[#6b6b78] font-mono">
+            Flinch &mdash; Built for traders who want the truth.
+          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-xs font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-xs font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   );
