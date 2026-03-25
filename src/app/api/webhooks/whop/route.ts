@@ -38,11 +38,17 @@ export async function POST(request: NextRequest): Promise<Response> {
         if (!whopUserId || typeof whopUserId !== 'string') break;
 
         // Try metadata-based lookup first (initial activation from checkout)
+        // Whop may deliver metadata keys with or without the d_metadata_ prefix
         const rawMetadata = membership.metadata as Record<string, unknown> | null | undefined;
+        const rawSupabaseId =
+          rawMetadata?.supabase_user_id ?? rawMetadata?.d_metadata_supabase_user_id;
         const supabaseUserId =
-          typeof rawMetadata?.supabase_user_id === 'string' && UUID_REGEX.test(rawMetadata.supabase_user_id)
-            ? rawMetadata.supabase_user_id
+          typeof rawSupabaseId === 'string' && UUID_REGEX.test(rawSupabaseId)
+            ? rawSupabaseId
             : undefined;
+
+        console.log('Webhook membership.activated metadata:', JSON.stringify(rawMetadata));
+        console.log('Resolved supabaseUserId:', supabaseUserId, 'whopUserId:', whopUserId);
 
         let activateResult;
         if (supabaseUserId) {
