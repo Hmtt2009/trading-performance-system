@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import {
   Brain,
@@ -8,8 +6,9 @@ import {
   Shield,
   UploadCloud,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const FEATURES = [
+const FEATURES: { title: string; desc: string; icon: LucideIcon }[] = [
   {
     title: 'Pattern Detection',
     desc: 'Automatically identifies overtrading, revenge trading, size escalation, and premature exits.',
