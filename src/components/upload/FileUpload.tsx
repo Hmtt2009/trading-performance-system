@@ -88,6 +88,11 @@ export function FileUpload() {
         Upload your broker CSV export to import trades for analysis.
       </p>
 
+      {/* Risk disclaimer */}
+      <div className="mb-4 p-3 rounded bg-[#f5a623]/5 border border-[#f5a623]/20 text-[#f5a623] text-xs font-mono">
+        Flinch analyzes behavioral patterns for educational purposes only. This is not financial advice. Trading involves risk of loss.
+      </div>
+
       {/* Existing trades banner */}
       {hasExistingTrades && !result && (
         <div className="mb-4 p-3 rounded bg-blue-bg border border-blue/20 text-blue text-xs font-mono">
@@ -117,6 +122,13 @@ export function FileUpload() {
           or click to browse. Supports IBKR, Schwab, TD Ameritrade, and Webull exports.
         </p>
       </div>
+
+      {/* Help link */}
+      <p className="mt-3 text-center">
+        <Link href="/guide" className="text-xs text-muted hover:text-foreground font-mono transition-colors">
+          Need help exporting? View the step-by-step guide &rarr;
+        </Link>
+      </p>
 
       {/* Progress bar */}
       {uploading && (
