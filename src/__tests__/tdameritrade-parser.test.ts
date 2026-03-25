@@ -475,13 +475,13 @@ describe('TD Ameritrade Parser', () => {
   });
 
   describe('Hold time calculation', () => {
-    it('should compute holdTimeMinutes as 0 for same-timestamp entry/exit', () => {
-      // Both rows share the same date (no time component, so both get T12:00:00)
+    it('should compute holdTimeMinutes as 30 for same-day entry/exit with estimated timestamps', () => {
+      // Both rows share the same date (no time component), so timestamps are estimated
+      // First execution gets 09:30, second gets 10:00 => 30 min gap
       const result = parseTDAmeritradeCSV(BASIC_LONG_CSV);
       const trade = result.trades[0];
 
-      // Both executions have same date, time defaults to 12:00:00 => 0 minutes
-      expect(trade.holdTimeMinutes).toBe(0);
+      expect(trade.holdTimeMinutes).toBe(30);
     });
   });
 });

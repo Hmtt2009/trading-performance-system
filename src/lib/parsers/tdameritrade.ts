@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import type { RawExecution, ParsedTrade, ParseError, ParseResult } from '@/types';
+import { estimateTimestamps } from './estimate-timestamps';
 
 /**
  * Parse TD Ameritrade CSV transaction history export.
@@ -52,6 +53,7 @@ export function parseTDAmeritradeCSV(
   }
 
   let parsedRows = 0;
+  let hasDateOnly = false;
 
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -93,6 +95,11 @@ export function parseTDAmeritradeCSV(
       continue;
     }
 
+    // Detect date-only format (no time component)
+    if (isTDADateOnly(dateStr)) {
+      hasDateOnly = true;
+    }
+
     const qtyStr = cols[qtyIdx]?.replace(/,/g, '').trim() || '0';
     const quantity = Math.abs(parseFloat(qtyStr));
     if (!quantity || isNaN(quantity)) {
@@ -128,18 +135,50 @@ export function parseTDAmeritradeCSV(
       rawRow,
     };
 
-    const hash = generateHash(exec);
-    if (existingHashes.has(hash)) {
-      duplicateHashes.push(hash);
-      skippedRows++;
-      continue;
+    // For date-only CSVs, defer hash check until after timestamp estimation
+    if (!hasDateOnly) {
+      const hash = generateHash(exec);
+      if (existingHashes.has(hash)) {
+        duplicateHashes.push(hash);
+        skippedRows++;
+        continue;
+      }
     }
 
     executions.push(exec);
     parsedRows++;
   }
 
+  // Estimate timestamps for date-only brokers (no time component in CSV)
+  if (hasDateOnly) {
+    estimateTimestamps(executions);
+
+    // Now check for duplicates after timestamps are estimated
+    if (existingHashes.size > 0) {
+      const deduped: RawExecution[] = [];
+      for (const exec of executions) {
+        const hash = generateHash(exec);
+        if (existingHashes.has(hash)) {
+          duplicateHashes.push(hash);
+          skippedRows++;
+          parsedRows--;
+        } else {
+          deduped.push(exec);
+        }
+      }
+      executions.length = 0;
+      executions.push(...deduped);
+    }
+  }
+
   const trades = groupIntoTrades(executions);
+
+  // Mark trades with estimated timestamps
+  if (hasDateOnly) {
+    for (const trade of trades) {
+      trade.isEstimatedTime = true;
+    }
+  }
 
   return {
     executions,
@@ -153,8 +192,17 @@ export function parseTDAmeritradeCSV(
       skippedRows,
       errorRows: errors.length,
       optionsSkipped,
+      ...(hasDateOnly ? { hasEstimatedTimes: true } : {}),
     },
   };
+}
+
+/**
+ * Returns true if the raw date string has no time component (date-only).
+ */
+function isTDADateOnly(raw: string): boolean {
+  const cleaned = raw.replace(/"/g, '').trim();
+  return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleaned);
 }
 
 function parseTDADate(raw: string): Date | null {

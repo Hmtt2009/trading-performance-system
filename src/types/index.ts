@@ -28,6 +28,7 @@ export interface ParseResult {
     skippedRows: number;
     errorRows: number;
     optionsSkipped: number;
+    hasEstimatedTimes?: boolean;
   };
 }
 
@@ -48,6 +49,7 @@ export interface ParsedTrade {
   isOpen: boolean;
   executionHash: string;
   executions: RawExecution[];
+  isEstimatedTime?: boolean;
 }
 
 export interface ParseError {
