@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ColumnMapper } from './ColumnMapper';
 import type { ColumnMapping } from './ColumnMapper';
 
@@ -146,7 +147,7 @@ export function FileUpload() {
     }
   }, []);
 
-  const handleMappingConfirm = useCallback(async (mapping: ColumnMapping) => {
+  const handleMappingConfirm = useCallback(async (mapping: ColumnMapping, formatName?: string) => {
     const file = pendingFileRef.current;
     if (!file) {
       setError('File reference lost. Please re-upload.');
@@ -163,6 +164,9 @@ export function FileUpload() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('mapping', JSON.stringify(mapping));
+      if (formatName) {
+        formData.append('formatName', formatName);
+      }
       setProgress(30);
 
       const res = await fetch('/api/upload/with-mapping', {
@@ -222,6 +226,11 @@ export function FileUpload() {
         Upload your broker CSV export to import trades for analysis.
       </p>
 
+      {/* Risk disclaimer */}
+      <div className="mb-4 p-3 rounded bg-[#f5a623]/5 border border-[#f5a623]/20 text-[#f5a623] text-xs font-mono">
+        Flinch analyzes behavioral patterns for educational purposes only. This is not financial advice. Trading involves risk of loss.
+      </div>
+
       {/* Existing trades banner */}
       {hasExistingTrades && !result && (
         <div className="mb-4 p-3 rounded bg-blue-bg border border-blue/20 text-blue text-xs font-mono">
@@ -252,6 +261,13 @@ export function FileUpload() {
         </p>
       </div>
 
+      {/* Help link */}
+      <p className="mt-3 text-center">
+        <Link href="/guide" className="text-xs text-muted hover:text-foreground font-mono transition-colors">
+          Need help exporting? View the step-by-step guide &rarr;
+        </Link>
+      </p>
+
       {/* Progress bar */}
       {uploading && (
         <div className="mt-4">
@@ -275,6 +291,15 @@ export function FileUpload() {
             <div>
               <p className="text-red font-medium font-mono text-sm">Upload Error</p>
               <p className="text-xs text-red/80 mt-1">{error}</p>
+              {(error.toLowerCase().includes('format') || error.toLowerCase().includes('unrecognized') || error.toLowerCase().includes('unsupported') || error.toLowerCase().includes('parse') || error.toLowerCase().includes('identify')) && (
+                <p className="text-xs text-red/70 mt-2">
+                  We couldn&apos;t identify your broker format. Currently supported: IBKR, Schwab, TD Ameritrade, Webull.{' '}
+                  <Link href="/guide" className="underline hover:text-red transition-colors">
+                    See our export guide
+                  </Link>{' '}
+                  for instructions.
+                </p>
+              )}
             </div>
           </div>
           <button onClick={reset} className="mt-3 text-xs text-muted hover:text-foreground transition-colors font-mono">
@@ -308,6 +333,17 @@ export function FileUpload() {
                 <p className="text-[10px] text-muted font-mono">Errors</p>
               </div>
             </div>
+
+            {result.metadata?.brokerFormat && (
+              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-bg border border-blue/20">
+                <svg className="w-3.5 h-3.5 text-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-blue text-[11px] font-mono">
+                  Detected format: {result.metadata.brokerFormat}
+                </span>
+              </div>
+            )}
           </div>
 
           {result.failedInserts > 0 && (

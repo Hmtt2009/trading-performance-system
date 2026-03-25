@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth/getAuthUser';
 import { parseWithMapping } from '@/lib/parsers/manual-parser';
 import type { ColumnMapping } from '@/lib/parsers/manual-parser';
+import { generateFormatFingerprint } from '@/lib/parsers/broker-format-matcher';
 import { computeBaseline } from '@/lib/analysis/baseline';
 import { analyzeSession } from '@/lib/analysis/session';
 import { getPostExitPriceData, createYahooFinanceClient } from '@/lib/market/postExitPrice';
@@ -173,9 +174,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use "manual" as broker, or the user-provided format name
-    const brokerName = formatName || 'manual';
-    const accountLabel = formatName ? `${formatName} Account` : 'Manual Import';
+    // Always use "manual" as broker type for manually-mapped uploads
+    const brokerName = 'manual';
+    const accountLabel = formatName ? `${formatName} Import` : 'Manual Import';
 
     // Get or create broker account
     const { data: brokerAccount } = await supabase
@@ -205,16 +206,32 @@ export async function POST(request: NextRequest) {
       brokerAccountId = newAccount.id;
     }
 
-    // Optionally save the format for future use
+    // Optionally save the format for future auto-detection
     if (formatName) {
+      const csvLines = csvContent.split(/\r?\n/).filter((l: string) => l.trim());
+      const headerLine = csvLines[headerRowIndex] || csvLines[0] || '';
+      const sampleHeaders = headerLine.split(',').map((h: string) => h.replace(/"/g, '').trim());
+      const fingerprint = await generateFormatFingerprint(sampleHeaders);
+
       await supabase
         .from('broker_formats')
         .upsert({
-          user_id: user.id,
+          created_by: user.id,
           format_name: formatName,
-          column_mapping: mapping,
+          format_fingerprint: fingerprint,
+          column_symbol: mapping.symbol,
+          column_datetime: mapping.dateTime,
+          column_side: mapping.side,
+          column_quantity: mapping.quantity,
+          column_price: mapping.price,
+          column_commission: mapping.commission,
+          column_proceeds: mapping.proceeds,
+          column_currency: mapping.currency,
+          column_account: mapping.accountId,
+          column_asset_category: mapping.assetCategory,
           header_row_index: headerRowIndex,
-        }, { onConflict: 'user_id,format_name' })
+          sample_headers: sampleHeaders,
+        }, { onConflict: 'format_fingerprint' })
         .select();
     }
 

@@ -184,18 +184,6 @@ export function parseWithMapping(
 
 // ── Date parsing ──
 
-const DATE_FORMATS = [
-  // ISO 8601
-  /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
-  // MM/DD/YYYY
-  /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(.+))?$/,
-  // DD/MM/YYYY (ambiguous; we try MM/DD first)
-  // YYYY/MM/DD
-  /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(.+))?$/,
-  // MM-DD-YYYY
-  /^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(.+))?$/,
-];
-
 function parseFlexibleDate(raw: string | undefined): Date | null {
   if (!raw) return null;
   const cleaned = raw.replace(/"/g, '').trim();

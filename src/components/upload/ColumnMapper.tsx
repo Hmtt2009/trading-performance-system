@@ -19,7 +19,7 @@ interface ColumnMapperProps {
   headers: string[];
   previewRows: string[][];
   suggestedMapping?: Partial<ColumnMapping>;
-  onConfirm: (mapping: ColumnMapping) => void;
+  onConfirm: (mapping: ColumnMapping, formatName?: string) => void;
   onCancel: () => void;
 }
 
@@ -86,7 +86,7 @@ export function ColumnMapper({
 
   const handleConfirm = () => {
     if (!requiredComplete) return;
-    onConfirm(mapping);
+    onConfirm(mapping, saveFormat && formatName.trim() ? formatName.trim() : undefined);
   };
 
   return (

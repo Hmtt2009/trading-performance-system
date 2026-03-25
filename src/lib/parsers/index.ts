@@ -2,6 +2,7 @@ import { parseIBKRExecutions } from './ibkr-parser';
 import { parseSchwabCSV } from './schwab';
 import { parseTDAmeritradeCSV } from './tdameritrade';
 import { parseWebullCSV } from './webull';
+import { classifyParseError } from './error-classifier';
 import type { ParseResult } from '@/types';
 
 type BrokerType = 'ibkr' | 'schwab' | 'tdameritrade' | 'webull' | 'unknown';
@@ -63,34 +64,49 @@ export function parseTradeCSV(
 ): ParseResult {
   const broker = detectBroker(csvContent);
 
+  if (broker === 'unknown') {
+    const classification = classifyParseError(csvContent);
+    return {
+      executions: [],
+      trades: [],
+      errors: [{ row: 0, message: `${classification.message} ${classification.suggestion}` }],
+      duplicateHashes: [],
+      metadata: {
+        brokerFormat: 'unknown',
+        totalRows: csvContent.split(/\r?\n/).filter((l) => l.trim()).length,
+        parsedRows: 0,
+        skippedRows: 0,
+        errorRows: 1,
+        optionsSkipped: 0,
+      },
+    };
+  }
+
+  let result: ParseResult;
   switch (broker) {
     case 'ibkr':
-      return parseIBKRExecutions(csvContent, existingHashes);
+      result = parseIBKRExecutions(csvContent, existingHashes);
+      break;
     case 'schwab':
-      return parseSchwabCSV(csvContent, existingHashes);
+      result = parseSchwabCSV(csvContent, existingHashes);
+      break;
     case 'tdameritrade':
-      return parseTDAmeritradeCSV(csvContent, existingHashes);
+      result = parseTDAmeritradeCSV(csvContent, existingHashes);
+      break;
     case 'webull':
-      return parseWebullCSV(csvContent, existingHashes);
-    default:
-      return {
-        executions: [],
-        trades: [],
-        errors: [{
-          row: 0,
-          message: 'Unrecognized broker format. Supports IBKR, Schwab, TD Ameritrade, Webull.',
-        }],
-        duplicateHashes: [],
-        metadata: {
-          brokerFormat: 'unknown',
-          totalRows: 0,
-          parsedRows: 0,
-          skippedRows: 0,
-          errorRows: 1,
-          optionsSkipped: 0,
-        },
-      };
+      result = parseWebullCSV(csvContent, existingHashes);
+      break;
   }
+
+  // When a broker parser returns 0 trades with errors, enhance with a classified suggestion
+  if (result.trades.length === 0 && result.errors.length > 0) {
+    const classification = classifyParseError(csvContent);
+    if (result.errors[0]) {
+      result.errors[0].message = `${result.errors[0].message} ${classification.suggestion}`;
+    }
+  }
+
+  return result;
 }
 
 export { parseIBKRExecutions } from './ibkr-parser';
