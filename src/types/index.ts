@@ -135,3 +135,18 @@ export interface ScoreEntry {
   totalPnl: number;
   profitFactor: number;
 }
+
+// Broker format auto-learning types
+
+export interface ColumnMapping {
+  symbol: string;
+  dateTime: string;
+  side: string | null;
+  quantity: string;
+  price: string;
+  commission: string | null;
+  proceeds: string | null;
+  currency: string | null;
+  accountId: string | null;
+  assetCategory: string | null;
+}

@@ -1,4 +1,40 @@
 import Link from 'next/link';
+import {
+  Brain,
+  TrendingUp,
+  BarChart3,
+  Shield,
+  UploadCloud,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+const FEATURES: { title: string; desc: string; icon: LucideIcon }[] = [
+  {
+    title: 'Pattern Detection',
+    desc: 'Automatically identifies overtrading, revenge trading, size escalation, and premature exits.',
+    icon: Brain,
+  },
+  {
+    title: 'Dollar Impact',
+    desc: 'See exactly how much each bad habit costs you — in real dollars, not abstract scores.',
+    icon: TrendingUp,
+  },
+  {
+    title: 'Behavioral Scorecard',
+    desc: 'Track your discipline over time with a score that reflects your actual trading behavior.',
+    icon: BarChart3,
+  },
+  {
+    title: 'Baseline Calibration',
+    desc: 'All analysis is relative to YOUR trading style — no generic thresholds or one-size-fits-all rules.',
+    icon: Shield,
+  },
+  {
+    title: 'Multi-Broker Support',
+    desc: 'Import trades from IBKR, Schwab, TD Ameritrade, and Webull. Auto-detected from your CSV.',
+    icon: UploadCloud,
+  },
+];
 
 const PAIN_POINTS = [
   'I keep losing right after a big loss',
@@ -71,6 +107,9 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <Link href="/pricing" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
             Pricing
+          </Link>
+          <Link href="/guide" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+            Guide
           </Link>
           <Link href="/about" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
             About
@@ -155,6 +194,29 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FEATURES */}
+      <section className="px-6 py-20 border-t border-[#1c1c22]">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-display text-4xl sm:text-5xl tracking-wide text-center mb-16">
+            WHAT YOU GET
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="p-6 rounded border border-[#1c1c22] bg-[#0c0c0f] hover:border-[#28282f] transition-colors"
+              >
+                <feature.icon className="w-6 h-6 text-[#00e87a] mb-3" strokeWidth={1.5} />
+                <h3 className="font-display text-xl tracking-wide mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-sm text-[#6b6b78] leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* 4 PATTERNS */}
       <section className="px-6 py-20 border-t border-[#1c1c22]">
         <div className="max-w-5xl mx-auto">
@@ -231,10 +293,20 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-[#1c1c22] text-center">
-        <p className="text-xs text-[#6b6b78] font-mono">
-          Flinch &mdash; Built for traders who want the truth.
-        </p>
+      <footer className="px-6 py-8 border-t border-[#1c1c22]">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
+          <p className="text-xs text-[#6b6b78] font-mono">
+            Flinch &mdash; Built for traders who want the truth.
+          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-xs font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-xs font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   );
