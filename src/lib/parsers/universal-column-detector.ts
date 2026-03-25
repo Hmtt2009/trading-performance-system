@@ -59,7 +59,7 @@ const COLUMN_ALIASES: Record<MappingField, string[]> = {
   ],
   side: [
     'Action', 'Side', 'Buy/Sell', 'Type', 'Transaction Type',
-    'B/S', 'Trade Type', 'Order Side', 'Direction', 'Description',
+    'Transaction', 'B/S', 'Trade Type', 'Order Side', 'Direction', 'Description',
   ],
   quantity: [
     'Quantity', 'Qty', 'Shares', 'Amount', 'Size',
