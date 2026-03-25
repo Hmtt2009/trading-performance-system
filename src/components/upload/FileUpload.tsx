@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface UploadResult {
   uploadId: string;
@@ -140,6 +141,15 @@ export function FileUpload() {
             <div>
               <p className="text-red font-medium font-mono text-sm">Upload Error</p>
               <p className="text-xs text-red/80 mt-1">{error}</p>
+              {(error.toLowerCase().includes('format') || error.toLowerCase().includes('unrecognized') || error.toLowerCase().includes('unsupported') || error.toLowerCase().includes('parse') || error.toLowerCase().includes('identify')) && (
+                <p className="text-xs text-red/70 mt-2">
+                  We couldn&apos;t identify your broker format. Currently supported: IBKR, Schwab, TD Ameritrade, Webull.{' '}
+                  <Link href="/guide" className="underline hover:text-red transition-colors">
+                    See our export guide
+                  </Link>{' '}
+                  for instructions.
+                </p>
+              )}
             </div>
           </div>
           <button onClick={reset} className="mt-3 text-xs text-muted hover:text-foreground transition-colors font-mono">
@@ -173,6 +183,17 @@ export function FileUpload() {
                 <p className="text-[10px] text-muted font-mono">Errors</p>
               </div>
             </div>
+
+            {result.metadata?.brokerFormat && (
+              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-bg border border-blue/20">
+                <svg className="w-3.5 h-3.5 text-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-blue text-[11px] font-mono">
+                  Detected format: {result.metadata.brokerFormat}
+                </span>
+              </div>
+            )}
           </div>
 
           {result.failedInserts > 0 && (
