@@ -68,7 +68,7 @@ function toET(date: Date): { hour: number; minute: number; dow: number } {
   // independent of the host machine's timezone setting.
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
-    hour12: false,
+    hourCycle: 'h23',
     hour: '2-digit',
     minute: '2-digit',
     weekday: 'short',
