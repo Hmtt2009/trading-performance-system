@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface UploadResult {
   uploadId: string;
@@ -121,6 +122,13 @@ export function FileUpload() {
           or click to browse. Supports IBKR, Schwab, TD Ameritrade, and Webull exports.
         </p>
       </div>
+
+      {/* Help link */}
+      <p className="mt-3 text-center">
+        <Link href="/guide" className="text-xs text-muted hover:text-foreground font-mono transition-colors">
+          Need help exporting? View the step-by-step guide &rarr;
+        </Link>
+      </p>
 
       {/* Progress bar */}
       {uploading && (

@@ -72,6 +72,9 @@ export default function LandingPage() {
           <Link href="/pricing" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
             Pricing
           </Link>
+          <Link href="/guide" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
+            Guide
+          </Link>
           <Link href="/about" className="text-sm font-mono text-[#6b6b78] hover:text-[#e0e0e8] transition-colors">
             About
           </Link>
