@@ -66,7 +66,7 @@ export default function PricingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* FREE */}
-          <div className="rounded border border-[#1c1c22] bg-[#0c0c0f] p-8 flex flex-col">
+          <div className="rounded-lg border border-[#1c1c22] bg-[#0c0c0f] p-8 flex flex-col">
             <h2 className="font-display text-3xl tracking-wide mb-1">FREE</h2>
             <div className="flex items-baseline gap-1 mb-6">
               <span className="font-mono text-4xl font-bold text-[#e0e0e8]">$0</span>
@@ -89,7 +89,7 @@ export default function PricingPage() {
           </div>
 
           {/* PRO */}
-          <div className="rounded border border-[#00e87a]/30 bg-[#0c0c0f] p-8 flex flex-col relative"
+          <div className="rounded-lg border border-[#00e87a]/30 bg-[#0c0c0f] p-8 flex flex-col relative"
             style={{ boxShadow: '0 0 30px rgba(0, 232, 122, 0.08)' }}
           >
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#070709] border border-[#00e87a]/30 rounded text-[10px] font-mono text-[#00e87a] tracking-wider whitespace-nowrap">

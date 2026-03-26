@@ -112,7 +112,7 @@ export function SessionTimeline({ date }: SessionTimelineProps) {
     <div className="space-y-4">
       {/* Session summary */}
       {data.session && (
-        <div className="bg-panel rounded border border-border p-4">
+        <div className="bg-panel rounded-lg border border-border p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] text-muted font-mono uppercase tracking-widest">Session: {date}</p>
@@ -174,7 +174,7 @@ export function SessionTimeline({ date }: SessionTimelineProps) {
 
               {/* Trade card */}
               <div className="flex-1 pb-4">
-                <div className="bg-panel rounded border border-border p-4 hover:border-border-light transition-colors">
+                <div className="bg-panel rounded-lg border border-border p-4 hover:border-border-light transition-colors">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-foreground">

@@ -99,10 +99,10 @@ export function ProfileView() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-3xl tracking-wide">PROFILE</h1>
+      <h1 className="font-display text-3xl tracking-wide mb-2">PROFILE</h1>
 
       {/* User Info */}
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="panel-header px-5 py-3">
           <h2 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">Account</h2>
         </div>
@@ -162,7 +162,7 @@ export function ProfileView() {
       </div>
 
       {/* Subscription */}
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="panel-header px-5 py-3">
           <h2 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">Membership</h2>
         </div>
