@@ -22,9 +22,12 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Trading Performance System",
-  description:
-    "Upload your trades. Detect behavioral patterns. Improve your edge.",
+  title: "Flinch",
+  description: "Upload your trades. See what you're really doing.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
