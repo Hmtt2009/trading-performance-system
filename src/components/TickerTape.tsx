@@ -65,7 +65,7 @@ export function TickerTape() {
   );
 
   return (
-    <div className="fixed top-0 left-0 right-0 h-9 z-50 bg-surface border-b border-border overflow-hidden flex items-center">
+    <div className={`fixed top-0 left-0 right-0 h-9 z-50 bg-surface border-b border-border overflow-hidden flex items-center ${data ? 'opacity-80' : 'opacity-70'}`}>
       <div className="ticker-scroll inline-flex">
         {segment}
         {segment}

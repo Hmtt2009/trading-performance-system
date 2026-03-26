@@ -1,8 +1,9 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
-export const metadata = {
-  title: 'Terms of Service | Flinch',
-  description: 'Flinch terms of service — rules and disclaimers for using the platform.',
+export const metadata: Metadata = {
+  title: "Terms of Service | Flinch",
+  description: "Terms of service for Flinch trading journal and behavioral pattern detector.",
 };
 
 export default function TermsOfServicePage() {
