@@ -1,8 +1,9 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
-export const metadata = {
-  title: 'Privacy Policy | Flinch',
-  description: 'Flinch privacy policy — how we collect, store, and protect your data.',
+export const metadata: Metadata = {
+  title: "Privacy Policy | Flinch",
+  description: "How Flinch handles your trading data. Encrypted, never shared, delete anytime.",
 };
 
 export default function PrivacyPolicyPage() {

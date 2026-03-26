@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: "About Flinch — Built by a Trader, for Traders",
+  description: "Flinch was built by an active IBKR day trader who needed a tool that analyzes behavioral patterns automatically. No journaling. No manual effort. Just upload.",
+};
 
 export default function AboutPage() {
   return (

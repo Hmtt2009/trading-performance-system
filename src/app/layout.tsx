@@ -22,12 +22,36 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Flinch",
-  description: "Upload your trades. See what you're really doing.",
+  title: "Trading Journal & Behavioral Pattern Detector | Flinch",
+  description: "Stop losing money to bad habits. Flinch analyzes your trade data to expose behavioral patterns like revenge trading, overtrading, and premature exits. Upload your CSV from any US broker. Free to start.",
   icons: {
     icon: "/favicon.ico",
     apple: "/icon.png",
   },
+  openGraph: {
+    title: "Trading Journal & Behavioral Pattern Detector | Flinch",
+    description: "Stop losing money to bad habits. Flinch analyzes your trade data to expose behavioral patterns like revenge trading, overtrading, and premature exits.",
+    url: "https://flinch.cards",
+    siteName: "Flinch",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Trading Journal & Behavioral Pattern Detector | Flinch",
+    description: "Stop losing money to bad habits. Flinch analyzes your trade data to expose behavioral patterns like revenge trading, overtrading, and premature exits.",
+  },
+  keywords: [
+    "trading journal",
+    "trading performance system",
+    "behavioral trading patterns",
+    "revenge trading detector",
+    "trading psychology tool",
+    "trade analysis tool",
+    "overtrading detection",
+    "trading journal alternative",
+    "TradeZella alternative",
+    "automated trading journal",
+  ],
 };
 
 export default function RootLayout({
@@ -40,6 +64,25 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${spaceMono.variable} ${bebasNeue.variable} antialiased bg-background text-foreground min-h-screen`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "Flinch",
+              "applicationCategory": "FinanceApplication",
+              "operatingSystem": "Web",
+              "url": "https://flinch.cards",
+              "description": "AI-powered trading journal that automatically detects behavioral patterns costing traders money.",
+              "offers": {
+                "@type": "Offer",
+                "price": "19.00",
+                "priceCurrency": "USD"
+              }
+            })
+          }}
+        />
         <AppShell>{children}</AppShell>
         <Analytics />
       </body>

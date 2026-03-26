@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://flinch.cards/sitemap.xml
