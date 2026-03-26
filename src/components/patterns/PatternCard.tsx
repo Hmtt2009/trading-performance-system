@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface PostExitData {
   exitPrice: number;
@@ -53,7 +54,9 @@ export function PatternCard({
   const [dismissing, setDismissing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  const handleDismiss = async () => {
+  const handleDismiss = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDismissing(true);
     try {
       const res = await fetch(`/api/analysis/patterns/${id}`, {
@@ -78,7 +81,8 @@ export function PatternCard({
   const recommendation = PATTERN_RECOMMENDATIONS[patternType] || '';
 
   return (
-    <div className="bg-panel rounded border border-border p-4 transition-all hover:border-border-light">
+    <Link href={`/patterns/${id}`} className="block">
+    <div className="bg-panel rounded border border-border p-4 transition-all hover:border-green/40 hover:shadow-[0_0_12px_rgba(0,232,122,0.08)] cursor-pointer">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -156,5 +160,6 @@ export function PatternCard({
         </button>
       </div>
     </div>
+    </Link>
   );
 }
