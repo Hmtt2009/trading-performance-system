@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Mono, Bebas_Neue, Syne } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
 import { AppShell } from "@/components/AppShell";
 
 const syne = Syne({
@@ -37,6 +38,7 @@ export default function RootLayout({
         className={`${syne.variable} ${spaceMono.variable} ${bebasNeue.variable} antialiased bg-background text-foreground min-h-screen`}
       >
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
