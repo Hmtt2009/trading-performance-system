@@ -55,7 +55,7 @@ function MetricCard({ label, value, subtext, delta }: {
   label: string; value: string; subtext?: string; delta?: React.ReactNode;
 }) {
   return (
-    <div className="bg-panel rounded border border-border p-4">
+    <div className="bg-panel rounded-lg border border-border p-4 transition-colors hover:border-border-light">
       <p className="text-[10px] text-muted uppercase tracking-widest mb-1 font-mono font-bold">{label}</p>
       <p className="text-xl font-mono font-bold text-foreground">{value}</p>
       <div className="flex items-center gap-2 mt-1">
@@ -109,7 +109,7 @@ function WeeklyReviewContent() {
   if (hasAccess === false) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h1 className="font-display text-3xl tracking-wide mb-4">WEEKLY REVIEW</h1>
+        <h1 className="font-display text-3xl tracking-wide mb-2">WEEKLY REVIEW</h1>
         <UpgradePrompt feature="Weekly Review" />
       </div>
     );
@@ -149,8 +149,8 @@ function WeeklyReviewContent() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
       {/* Header */}
       <div>
-        <h1 className="font-display text-3xl tracking-wide">WEEKLY REVIEW</h1>
-        <p className="text-muted text-sm mt-1">Grab your coffee and let&apos;s review your trading week</p>
+        <h1 className="font-display text-3xl tracking-wide mb-2">WEEKLY REVIEW</h1>
+        <p className="text-muted text-sm">Grab your coffee and let&apos;s review your trading week</p>
       </div>
 
       {/* Week selector */}
@@ -185,7 +185,7 @@ function WeeklyReviewContent() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <MetricCard
           label="Net P&L"
           value={formatCurrency(current.netPnl)}
@@ -217,7 +217,7 @@ function WeeklyReviewContent() {
 
       {/* Week over week comparison */}
       {previous && (
-        <div className="bg-panel rounded border border-border overflow-hidden">
+        <div className="bg-panel rounded-lg border border-border overflow-hidden">
           <div className="panel-header px-4 py-3">
             <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
               Week over Week

@@ -95,7 +95,7 @@ export function DebriefView({ date }: DebriefViewProps) {
 
   if (!debrief) {
     return (
-      <div className="bg-panel rounded border border-border p-8 text-center">
+      <div className="bg-panel rounded-lg border border-border p-8 text-center">
         <svg
           className="w-12 h-12 text-muted mx-auto mb-4"
           fill="none"
@@ -136,7 +136,7 @@ export function DebriefView({ date }: DebriefViewProps) {
   }
 
   return (
-    <div className="bg-panel rounded border border-border overflow-hidden">
+    <div className="bg-panel rounded-lg border border-border overflow-hidden">
       <div className="panel-header px-4 py-3 flex items-center justify-between">
         <div>
           <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">

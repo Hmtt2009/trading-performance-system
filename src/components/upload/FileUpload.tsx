@@ -233,7 +233,7 @@ export function FileUpload() {
       </p>
 
       {/* Risk disclaimer */}
-      <div className="mb-4 p-3 rounded bg-[#f5a623]/5 border border-[#f5a623]/20 text-[#f5a623] text-xs font-mono">
+      <div className="mb-4 p-3 rounded-lg bg-[#f5a623]/5 border border-[#f5a623]/20 text-[#f5a623] text-xs font-mono">
         Flinch analyzes behavioral patterns for educational purposes only. This is not financial advice. Trading involves risk of loss.
       </div>
 
@@ -249,7 +249,7 @@ export function FileUpload() {
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        className={`relative border border-dashed rounded p-16 text-center transition-all ${
+        className={`relative border border-dashed rounded-lg p-16 text-center transition-all ${
           isDragging
             ? 'border-green bg-green-bg'
             : 'border-border-light hover:border-muted bg-panel'
@@ -317,7 +317,7 @@ export function FileUpload() {
       {/* Success / Results display */}
       {result && (
         <div className="mt-4 space-y-3">
-          <div className={`p-4 rounded border ${result.tradesImported === 0 && result.failedInserts > 0 ? 'bg-red-bg border-red/20' : 'bg-green-bg border-green/20'}`}>
+          <div className={`p-4 rounded-lg border ${result.tradesImported === 0 && result.failedInserts > 0 ? 'bg-red-bg border-red/20' : 'bg-green-bg border-green/20'}`}>
             <p className={`font-mono font-bold text-sm ${result.tradesImported === 0 && result.failedInserts > 0 ? 'text-red' : 'text-green'}`}>
               {result.tradesImported === 0 && result.failedInserts > 0 ? 'Upload Failed' : 'Upload Complete'}
             </p>
@@ -387,7 +387,7 @@ export function FileUpload() {
           )}
 
           {result.errors.length > 0 && (
-            <div className="p-4 rounded bg-panel border border-border">
+            <div className="p-4 rounded-lg bg-panel border border-border">
               <p className="text-xs font-mono font-bold text-foreground mb-2">
                 Parse Errors ({result.errors.length})
               </p>

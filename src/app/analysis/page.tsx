@@ -82,7 +82,10 @@ function PatternsTab() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-lg font-medium">No patterns detected</p>
-        <p className="text-sm mt-1 font-mono">Upload more trades to detect behavioral patterns.</p>
+        <p className="text-sm mt-1 font-mono">Upload trades to see your analysis.</p>
+        <a href="/upload" className="inline-block mt-4 px-4 py-2 bg-green text-background rounded-lg text-xs font-mono font-bold hover:bg-green/90 transition-colors">
+          UPLOAD CSV
+        </a>
       </div>
     );
   }
@@ -166,7 +169,7 @@ function AnalysisContent() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-display text-3xl tracking-wide">ANALYSIS</h1>
+      <h1 className="font-display text-3xl tracking-wide mb-2">ANALYSIS</h1>
 
       {/* Tab navigation */}
       <div className="flex bg-surface rounded border border-border p-0.5 gap-0.5 overflow-x-auto">

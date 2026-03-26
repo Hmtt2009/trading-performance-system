@@ -123,7 +123,7 @@ export function TradeList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl tracking-wide">TRADES</h1>
+        <h1 className="font-display text-3xl tracking-wide mb-2">TRADES</h1>
         <div className="flex items-center gap-3">
           <input
             type="text"
@@ -153,7 +153,7 @@ export function TradeList() {
         </div>
       </div>
 
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -264,7 +264,10 @@ export function TradeList() {
               ) : (
                 <tr>
                   <td colSpan={10} className="text-center py-12 text-muted font-mono">
-                    No trades found. Upload a CSV to get started.
+                    <p>No trades yet. Upload a CSV to import your trade history.</p>
+                    <a href="/upload" className="inline-block mt-3 px-4 py-2 bg-green text-background rounded-lg text-xs font-mono font-bold hover:bg-green/90 transition-colors">
+                      UPLOAD CSV
+                    </a>
                   </td>
                 </tr>
               )}

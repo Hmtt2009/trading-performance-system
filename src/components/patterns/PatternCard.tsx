@@ -78,7 +78,7 @@ export function PatternCard({
   const recommendation = PATTERN_RECOMMENDATIONS[patternType] || '';
 
   return (
-    <div className="bg-panel rounded border border-border p-4 transition-all hover:border-border-light">
+    <div className="bg-panel rounded-lg border border-border p-4 transition-all hover:border-border-light">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">

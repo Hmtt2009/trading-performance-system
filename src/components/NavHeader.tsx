@@ -90,7 +90,7 @@ export function NavHeader() {
               href={link.href}
               className={`relative flex flex-col items-center justify-center w-12 h-12 rounded transition-colors group ${
                 isActive
-                  ? 'text-green bg-green/8'
+                  ? 'text-green bg-green/10'
                   : 'text-muted hover:text-foreground hover:bg-card-hover'
               }`}
             >
@@ -111,7 +111,7 @@ export function NavHeader() {
         href="/profile"
         className={`flex flex-col items-center justify-center w-12 h-12 rounded transition-colors group mb-1 ${
           pathname === '/profile'
-            ? 'text-green bg-green/8'
+            ? 'text-green bg-green/10'
             : 'text-muted hover:text-foreground hover:bg-card-hover'
         }`}
         title="Profile"

@@ -118,7 +118,7 @@ export function CostOfBehaviorView() {
       </div>
 
       {/* Hero number */}
-      <div className="bg-panel rounded border border-border p-8 text-center">
+      <div className="bg-panel rounded-lg border border-border p-8 text-center">
         <p className="text-[10px] text-muted uppercase tracking-widest font-mono font-bold mb-2">
           Total Behavior Cost
         </p>
@@ -138,7 +138,7 @@ export function CostOfBehaviorView() {
       </div>
 
       {/* Dual equity curve */}
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="panel-header px-4 py-3">
           <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
             Actual vs. Simulated Equity
@@ -211,7 +211,7 @@ export function CostOfBehaviorView() {
       </div>
 
       {/* Per-pattern breakdown */}
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="panel-header px-4 py-3">
           <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
             Breakdown by Pattern

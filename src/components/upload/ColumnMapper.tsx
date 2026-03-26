@@ -102,7 +102,7 @@ export function ColumnMapper({
       </div>
 
       {/* Preview table */}
-      <div className="rounded border border-border bg-panel overflow-hidden">
+      <div className="rounded-lg border border-border bg-panel overflow-hidden">
         <div className="panel-header px-3 py-2">
           <span className="text-xs font-mono text-muted">CSV PREVIEW</span>
         </div>
@@ -142,7 +142,7 @@ export function ColumnMapper({
       </div>
 
       {/* Required fields */}
-      <div className="rounded border border-border bg-panel p-4">
+      <div className="rounded-lg border border-border bg-panel p-4">
         <h3 className="text-xs font-mono font-bold text-foreground mb-3 tracking-wide">
           REQUIRED FIELDS
         </h3>
@@ -215,7 +215,7 @@ export function ColumnMapper({
       </div>
 
       {/* Optional fields (collapsible) */}
-      <div className="rounded border border-border bg-panel">
+      <div className="rounded-lg border border-border bg-panel">
         <button
           onClick={() => setShowOptional(!showOptional)}
           className="w-full flex items-center justify-between px-4 py-3 text-xs font-mono text-muted hover:text-foreground transition-colors"
@@ -261,7 +261,7 @@ export function ColumnMapper({
       </div>
 
       {/* Save format option */}
-      <div className="rounded border border-border bg-panel p-4">
+      <div className="rounded-lg border border-border bg-panel p-4">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"

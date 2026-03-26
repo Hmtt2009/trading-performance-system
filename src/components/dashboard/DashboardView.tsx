@@ -97,7 +97,23 @@ export function DashboardView() {
     );
   }
 
-  if (!data) return null;
+  if (!data || data.summary.totalTrades === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <svg className="w-14 h-14 text-muted/40 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v18h18M7 16l4-4 4 4 4-4" />
+        </svg>
+        <p className="text-lg font-medium text-muted mb-1">No trading data yet</p>
+        <p className="text-sm text-muted font-mono mb-4">Upload your first CSV to get started.</p>
+        <a
+          href="/upload"
+          className="px-5 py-2.5 bg-green text-background rounded-lg text-xs font-mono font-bold hover:bg-green/90 transition-colors"
+        >
+          UPLOAD CSV
+        </a>
+      </div>
+    );
+  }
 
   const { summary, equityCurve, patternSummary, calendarData } = data;
 
@@ -105,7 +121,7 @@ export function DashboardView() {
     <div className="space-y-5">
       {/* Period selector */}
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl tracking-wide">DASHBOARD</h1>
+        <h1 className="font-display text-3xl tracking-wide mb-2">DASHBOARD</h1>
         <div className="flex bg-surface rounded border border-border p-0.5 gap-0.5">
           {PERIODS.map((p) => (
             <button
@@ -125,7 +141,7 @@ export function DashboardView() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className={`bg-panel rounded border border-border p-4 ${summary.totalNetPnl >= 0 ? 'glow-green' : 'glow-red'}`}>
+        <div className={`bg-panel rounded-lg border border-border p-4 transition-colors hover:border-border-light ${summary.totalNetPnl >= 0 ? 'glow-green' : 'glow-red'}`}>
           <p className="text-[10px] text-muted uppercase tracking-widest mb-1 font-mono">Net P&L</p>
           <p className={`text-2xl font-mono font-bold ${summary.totalNetPnl >= 0 ? 'text-green' : 'text-red'}`}>
             {formatCurrency(summary.totalNetPnl)}
@@ -134,7 +150,7 @@ export function DashboardView() {
             {summary.tradingDays} trading days
           </p>
         </div>
-        <div className="bg-panel rounded border border-border p-4">
+        <div className="bg-panel rounded-lg border border-border p-4 transition-colors hover:border-border-light">
           <p className="text-[10px] text-muted uppercase tracking-widest mb-1 font-mono">Win Rate</p>
           <p className="text-2xl font-mono font-bold text-foreground">
             {formatPercent(summary.winRate)}
@@ -143,7 +159,7 @@ export function DashboardView() {
             {summary.totalWins}W / {summary.totalLosses}L
           </p>
         </div>
-        <div className="bg-panel rounded border border-border p-4">
+        <div className="bg-panel rounded-lg border border-border p-4 transition-colors hover:border-border-light">
           <p className="text-[10px] text-muted uppercase tracking-widest mb-1 font-mono">Total Trades</p>
           <p className="text-2xl font-mono font-bold text-foreground">
             {summary.totalTrades}
@@ -152,7 +168,7 @@ export function DashboardView() {
             {summary.confidenceLabel}
           </p>
         </div>
-        <div className="bg-panel rounded border border-border p-4">
+        <div className="bg-panel rounded-lg border border-border p-4 transition-colors hover:border-border-light">
           <p className="text-[10px] text-muted uppercase tracking-widest mb-1 font-mono">Behavior Cost</p>
           <p className="text-2xl font-mono font-bold text-amber">
             -${Math.abs(summary.totalBehaviorCost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -164,7 +180,7 @@ export function DashboardView() {
       </div>
 
       {/* Equity curve */}
-      <div className="bg-panel rounded border border-border overflow-hidden">
+      <div className="bg-panel rounded-lg border border-border overflow-hidden">
         <div className="panel-header px-4 py-3">
           <h2 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
             Equity Curve
@@ -224,7 +240,7 @@ export function DashboardView() {
       {/* Pattern summary and Calendar in a grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Pattern summary */}
-        <div className="bg-panel rounded border border-border overflow-hidden">
+        <div className="bg-panel rounded-lg border border-border overflow-hidden">
           <div className="panel-header px-4 py-3">
             <h2 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
               Detected Patterns
@@ -236,7 +252,7 @@ export function DashboardView() {
                 {Object.entries(patternSummary).map(([type, info]) => (
                   <div
                     key={type}
-                    className="flex items-center justify-between p-3 rounded bg-surface border border-border"
+                    className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border transition-colors hover:border-border-light"
                   >
                     <div>
                       <p className="text-sm font-medium text-foreground">
@@ -259,7 +275,7 @@ export function DashboardView() {
         </div>
 
         {/* Calendar heat map */}
-        <div className="bg-panel rounded border border-border overflow-hidden">
+        <div className="bg-panel rounded-lg border border-border overflow-hidden">
           <div className="panel-header px-4 py-3">
             <h2 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">
               Calendar

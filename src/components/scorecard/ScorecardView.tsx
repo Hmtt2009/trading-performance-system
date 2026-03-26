@@ -134,7 +134,7 @@ function ScoreTable({
 
   if (sortedEntries.length === 0) {
     return (
-      <div className="bg-panel rounded border border-border p-4">
+      <div className="bg-panel rounded-lg border border-border p-4">
         <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest mb-3">{title}</h3>
         <p className="text-xs text-muted">No data available.</p>
       </div>
@@ -142,7 +142,7 @@ function ScoreTable({
   }
 
   return (
-    <div className="bg-panel rounded border border-border overflow-hidden">
+    <div className="bg-panel rounded-lg border border-border overflow-hidden">
       <div className="panel-header px-4 py-3">
         <h3 className="text-[11px] font-mono font-bold text-muted uppercase tracking-widest">{title}</h3>
       </div>
@@ -189,7 +189,7 @@ function InsightSection({ title, items, color }: { title: string; items: string[
     amber: 'bg-amber/8 border-amber/20 text-amber',
   };
   return (
-    <div className={`rounded border p-3 ${colorMap[color]}`}>
+    <div className={`rounded-lg border p-3 ${colorMap[color]}`}>
       <h4 className="text-[10px] font-mono font-bold uppercase tracking-widest mb-2">{title}</h4>
       <ul className="space-y-1">
         {items.map((item, i) => (
